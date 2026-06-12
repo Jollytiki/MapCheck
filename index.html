@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map Checker — Modern Boundary Closure Calculator</title>
+    <meta name="description" content="Calculate land survey closure errors, precision, and plot plat lines dynamically. Compatible with legacy 1992 .MAP files.">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Print Only Header -->
+    <div class="print-only-header">
+        <div class="print-header-top">
+            <h2>TRAVERSE CLOSURE &amp; QA/QC REPORT</h2>
+            <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                <div class="print-logo">MAPCHECK</div>
+                <div class="print-author" style="font-size: 0.65rem; font-weight: bold; margin-top: 0.15rem; color: #000000; font-family: var(--font-sans);">By Stu Cameron</div>
+            </div>
+        </div>
+        <div class="print-meta-grid">
+            <div><strong>Plat / Project Name:</strong> <span id="printPlatName">New Plat</span></div>
+            <div><strong>Lot Designation:</strong> <span id="printLotDesignation">Lot 4</span></div>
+            <div><strong>Date Generated:</strong> <span id="printDate">-</span></div>
+            <div><strong>Closure Precision:</strong> <span id="printPrecision">Perfect</span></div>
+            <div><strong>Area (Sq. Ft.):</strong> <span id="printAreaSqFt">N/A</span></div>
+            <div><strong>Area (Acres):</strong> <span id="printAreaAcres">N/A</span></div>
+        </div>
+    </div>
+
+    <header>
+        <div class="logo-container">
+            <div class="logo-icon">M</div>
+            <div class="logo-text">
+                <h1>Map Checker</h1>
+                <p>Boundary closure &amp; traverse plotter</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-secondary btn-sm" id="btnOpenLibrary" title="Open Library">
+                📁 Library
+            </button>
+            <button class="btn btn-primary btn-sm" id="btnExportMap" title="Export .MAP File">
+                💾 Export .MAP
+            </button>
+            <label class="btn btn-secondary btn-sm" style="margin: 0; cursor: pointer;" title="Import .MAP File">
+                📂 Import .MAP
+                <input type="file" id="btnImportMap" accept=".MAP,.txt" style="display: none;">
+            </label>
+        </div>
+    </header>
+
+    <main class="app-container">
+        <!-- Left Sidebar / Control Panel -->
+        <aside class="sidebar">
+            <!-- Plat Info -->
+            <div class="card">
+                <h2 class="card-title">Plat Details</h2>
+                <div class="form-group">
+                    <label for="platNameInput">Plat Name</label>
+                    <input type="text" id="platNameInput" placeholder="Enter plat name..." value="New Plat">
+                </div>
+                <div class="form-group" style="margin-top: 0.5rem;">
+                    <label for="lotDesignationInput">Lot Designation</label>
+                    <input type="text" id="lotDesignationInput" placeholder="e.g. Lot 4, Block B" value="Lot 4">
+                </div>
+            </div>
+
+            <!-- Add Course Form -->
+            <div class="card">
+                <h2 class="card-title">Add Course</h2>
+                
+                <div class="tab-container-selector">
+                    <button type="button" class="btn active" id="tabLineBtn">Straight Line</button>
+                    <button type="button" class="btn" id="tabCurveBtn">Circular Curve</button>
+                </div>
+
+                <form id="addCourseForm" onsubmit="return false;">
+                    <!-- Shared Inputs: Bearing orientation -->
+                    <div class="course-inputs-grid">
+                        <div class="form-group">
+                            <label for="quadrantInput">Quadrant (N/S)</label>
+                            <select id="quadrantInput" required>
+                                <option value="N">North (N)</option>
+                                <option value="S">South (S)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="hemisphereInput">Hemisphere (E/W)</label>
+                            <select id="hemisphereInput" required>
+                                <option value="E">East (E)</option>
+                                <option value="W">West (W)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 0.75rem;">
+                        <label for="bearingInput" id="bearingInputLabel">Bearing (DD.MMSS or Degrees)</label>
+                        <div class="bearing-input-wrapper">
+                            <input type="text" id="bearingInput" placeholder="e.g. 45.3015 or 45-30-15" required>
+                            <p class="input-helper" id="bearingInputHelper">Formats: 45.3015 (45°30'15") or 45-30-15</p>
+                        </div>
+                    </div>
+
+                    <!-- Line Specific Inputs -->
+                    <div id="lineInputsPanel">
+                        <div class="form-group" style="margin-top: 0.75rem;">
+                            <label for="distanceInput">Distance</label>
+                            <input type="number" id="distanceInput" step="0.001" min="0.001" placeholder="Length in feet/meters" required>
+                        </div>
+                    </div>
+
+                    <!-- Curve Specific Inputs -->
+                    <div id="curveInputsPanel" style="display: none;">
+                        <div class="form-group" style="margin-top: 0.75rem;">
+                            <label for="curveTurnInput">Turn Direction</label>
+                            <select id="curveTurnInput">
+                                <option value="L">Left (Concave Left)</option>
+                                <option value="R">Right (Concave Right)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Parameter group instructions -->
+                        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.75rem; border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
+                            <strong>Curve Parameters</strong> (Fill exactly two):
+                        </div>
+
+                        <div class="course-inputs-grid" style="margin-top: 0.5rem;">
+                            <div class="form-group">
+                                <label for="curveRadiusInput">Radius</label>
+                                <input type="number" id="curveRadiusInput" step="0.001" min="0.001" placeholder="R">
+                            </div>
+                            <div class="form-group">
+                                <label for="curveArcLengthInput">Arc Length</label>
+                                <input type="number" id="curveArcLengthInput" step="0.001" min="0.001" placeholder="L">
+                            </div>
+                        </div>
+
+                        <div class="course-inputs-grid" style="margin-top: 0.5rem;">
+                            <div class="form-group">
+                                <label for="curveDeltaInput">Delta Angle (D.MMSS)</label>
+                                <input type="text" id="curveDeltaInput" placeholder="Δ e.g. 60.0000">
+                            </div>
+                            <div class="form-group">
+                                <label for="curveChordInput">Chord Length</label>
+                                <input type="number" id="curveChordInput" step="0.001" min="0.001" placeholder="C">
+                            </div>
+                        </div>
+
+                        <!-- Resolved Info Card -->
+                        <div id="curveSolvedInfo" style="display: none; font-size: 0.725rem; background-color: var(--bg-base); border: 1px solid var(--border-color); border-radius: 0.25rem; padding: 0.5rem; margin-top: 0.75rem; font-family: var(--font-mono); color: var(--accent-emerald);">
+                            <!-- Calculated curve specs go here -->
+                        </div>
+                        
+                        <button type="button" class="btn btn-secondary btn-sm" id="btnResetCurveParams" style="width: 100%; margin-top: 0.5rem;">Clear Parameters</button>
+                    </div>
+
+                    <div class="btn-group" style="margin-top: 1.25rem; width: 100%;">
+                        <button type="submit" class="btn btn-primary" style="flex: 2;" id="btnAddCourse">Add Course</button>
+                        <button type="button" class="btn btn-secondary" style="flex: 1; display: none;" id="btnCancelEdit">Cancel</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Calculations / Stats Card -->
+            <div class="card">
+                <h2 class="card-title">Closure Summary</h2>
+                <div class="stats-grid">
+                    <div class="stat-box highlight" id="precisionBox">
+                        <span class="stat-label">Precision Ratio</span>
+                        <span class="stat-value" id="precisionVal">1 : 0</span>
+                    </div>
+                    <div class="stat-box" id="closureErrorBox">
+                        <span class="stat-label">Error of Closure</span>
+                        <span class="stat-value number" id="errorVal">0.0000</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Total Distance</span>
+                        <span class="stat-value number" id="totalDistVal">0.000</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Total Δ Northing</span>
+                        <span class="stat-value number" id="totalDeltaNVal">0.0000</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Total Δ Easting</span>
+                        <span class="stat-value number" id="totalDeltaEVal">0.0000</span>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" id="btnComputeArea" style="width: 100%; margin-top: 0.75rem;">📐 Compute Area</button>
+                <div id="areaDisplayBox" style="display: none; margin-top: 0.5rem; padding: 0.5rem; background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.2); border-radius: 0.25rem;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-secondary);">
+                        <span>Area (Sq. Ft.):</span>
+                        <strong id="areaSqFtVal" style="color: var(--text-primary);">0.00</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.25rem; color: var(--text-secondary);">
+                        <span>Area (Acres):</span>
+                        <strong id="areaAcresVal" style="color: var(--accent-emerald);">0.0000 ac</strong>
+                    </div>
+                </div>
+                <div class="btn-group" style="margin-top: 0.5rem;">
+                    <button class="btn btn-success btn-sm" id="btnSaveLibrary" style="flex: 1;">Save Library</button>
+                    <button class="btn btn-secondary btn-sm" id="btnSaveFileSidebar" style="flex: 1;" title="Save as .MAP File">💾 Save File</button>
+                </div>
+                <div class="btn-group" style="margin-top: 0.25rem;">
+                    <button class="btn btn-primary btn-sm" id="btnPrintReport" style="flex: 1;" title="Print PDF Report">🖨️ Print PDF</button>
+                    <button class="btn btn-danger btn-sm" id="btnClearPlat" style="flex: 1;">Clear All</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Right Main View: Plot canvas & course table -->
+        <section class="main-display">
+            <!-- Canvas Plotter -->
+            <div class="plot-container" id="canvasContainer">
+                <div class="canvas-title-overlay">
+                    <h3 id="platTitleDisplay">New Plat</h3>
+                    <p id="platSubDisplay">0 courses</p>
+                </div>
+                <canvas id="mapCanvas"></canvas>
+                <div class="canvas-controls">
+                    <button class="canvas-btn" id="btnZoomIn" title="Zoom In">+</button>
+                    <button class="canvas-btn" id="btnZoomOut" title="Zoom Out">-</button>
+                    <button class="canvas-btn" id="btnZoomFit" title="Fit to Screen">⛶</button>
+                </div>
+            </div>
+
+            <!-- Course Table -->
+            <div class="table-container">
+                <div class="table-header-sticky">
+                    <h2>Survey Course Table</h2>
+                    <span id="courseCountBadge" class="badge badge-n" style="font-family: var(--font-sans)">0 Courses</span>
+                </div>
+                <div class="course-table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th style="width: 100px;">Quadrant</th>
+                                <th style="width: 120px;">Bearing</th>
+                                <th style="width: 100px;">Hemisphere</th>
+                                <th style="width: 120px;">Distance</th>
+                                <th style="width: 120px;">Δ Northing</th>
+                                <th style="width: 120px;">Δ Easting</th>
+                                <th style="width: 100px; text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="courseTableBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                    <div class="empty-state" id="tableEmptyState">
+                        <div class="empty-state-icon">🗺️</div>
+                        <p>No courses added yet. Use the sidebar to add courses or import a .MAP file.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Library Modal -->
+    <div class="modal-overlay" id="libraryModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>Saved Plats Library</h2>
+                <button class="modal-close" id="btnCloseLibrary">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="library-list" id="libraryList">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btnCancelLibrary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Print Only QA/QC Block -->
+    <div class="print-only-footer">
+        <div class="qa-signature-row">
+            <div class="signature-box">
+                <p>Prepared / Checked By:</p>
+                <div class="signature-line"></div>
+                <p>Signature &amp; Date</p>
+            </div>
+            <div class="signature-box">
+                <p>QA/QC Approved By:</p>
+                <div class="signature-line"></div>
+                <p>Signature &amp; Date</p>
+            </div>
+        </div>
+        <div class="qa-checklist">
+            <strong>Traverse Verification Checklist:</strong>
+            <p>[ ] Bounds checked &amp; verified &nbsp;&nbsp;&nbsp;&nbsp; [ ] Loop closure precision meets standards &nbsp;&nbsp;&nbsp;&nbsp; [ ] Network QA archived</p>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
