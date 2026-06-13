@@ -9,6 +9,7 @@ let solvedCurve = null; // Stores solved curve parameters: R, L, Delta, C
 let courses = [];
 let library = [];
 let editingIndex = null;
+let lastErrorMsg = null;
 
 // Viewport and Interaction State for Canvas
 let zoom = 1.0;
@@ -29,6 +30,14 @@ const canvasContainer = document.getElementById("canvasContainer");
 const platNameInput = document.getElementById("platNameInput");
 const lotDesignationInput = document.getElementById("lotDesignationInput");
 const platTitleDisplay = document.getElementById("platTitleDisplay");
+
+// Starting Coordinates and Coordinate Table DOM
+const startNorthingInput = document.getElementById("startNorthingInput");
+const startEastingInput = document.getElementById("startEastingInput");
+const coordinateTableSection = document.getElementById("coordinateTableSection");
+const coordinateTableBody = document.getElementById("coordinateTableBody");
+const printStartNorthing = document.getElementById("printStartNorthing");
+const printStartEasting = document.getElementById("printStartEasting");
 
 // Curve inputs DOM
 const tabLineBtn = document.getElementById("tabLineBtn");
@@ -112,10 +121,20 @@ function showToast(message, type = "success") {
     toast.appendChild(msgSpan);
     
     toastContainer.appendChild(toast);
+    
+    if (type === "error") {
+        lastErrorMsg = message;
+        const btnShow = document.getElementById("btnShowLastError");
+        if (btnShow) {
+            btnShow.style.display = "inline-flex";
+        }
+    }
+    
+    const duration = type === "error" ? 10000 : 3000;
     setTimeout(() => {
         toast.style.opacity = '0';
         setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, duration);
 }
 
 // --- Math & Bearing Calculations ---
@@ -253,6 +272,13 @@ function recalculatePlat() {
     let totalE = 0;
     
     courses = courses.map(c => {
+        if (c.isInvalid) {
+            return {
+                ...c,
+                deltaN: 0,
+                deltaE: 0
+            };
+        }
         const distForDelta = c.type === "curve" ? c.chordLength : c.distance;
         const { deltaN, deltaE } = calculateDeltas(c.quad, c.bearing, c.hemi, distForDelta);
         totalDist += c.distance; // distance contains arc length for curves
@@ -300,12 +326,13 @@ function recalculatePlat() {
     if (areaBox) areaBox.style.display = "none";
     
     renderTable();
+    renderCoordinateTable();
     draw();
 }
 
 // Compute the area inside the boundary (using Shoelace formula + curve segment adjustments)
 function calculateTraverseArea() {
-    if (courses.length < 3) {
+    if (courses.length < 3 || courses.some(c => c.isInvalid)) {
         return null;
     }
     
@@ -348,6 +375,32 @@ function getPlatCoordinates() {
         x += c.deltaE;
         y += c.deltaN;
         pts.push({ x, y });
+    });
+    
+    return pts;
+}
+
+function getAbsolutePointCoordinates() {
+    let startN = parseFloat(startNorthingInput.value);
+    let startE = parseFloat(startEastingInput.value);
+    
+    if (isNaN(startN)) startN = 0.0;
+    if (isNaN(startE)) startE = 0.0;
+    
+    let n = startN;
+    let e = startE;
+    
+    const pts = [{ name: "POB", n, e }];
+    
+    courses.forEach((c, index) => {
+        if (c.isInvalid) {
+            pts.push({ name: `${index + 1}`, n: NaN, e: NaN });
+        } else {
+            n += c.deltaN;
+            e += c.deltaE;
+            const isClosure = (index === courses.length - 1);
+            pts.push({ name: isClosure ? "Closure" : `${index + 1}`, n, e });
+        }
     });
     
     return pts;
@@ -471,6 +524,7 @@ function draw() {
     // 1. Draw Course Lines
     for (let i = 0; i < courses.length; i++) {
         const c = courses[i];
+        if (c.isInvalid) continue;
         const s1 = pts[i];
         const s2 = pts[i + 1];
         const p1 = pixelPts[i];
@@ -760,28 +814,50 @@ function renderTable() {
     courses.forEach((c, index) => {
         const tr = document.createElement("tr");
         tr.dataset.index = index;
-        if (editingIndex === index) {
+        if (c.isInvalid) {
+            tr.style.backgroundColor = "rgba(239, 68, 68, 0.15)";
+            tr.style.borderLeft = "4px solid #ef4444";
+        } else if (editingIndex === index) {
             tr.style.backgroundColor = "rgba(16, 185, 129, 0.15)";
             tr.style.borderLeft = "4px solid #10b981";
         } else if (hoveredCourseIndex === index) {
             tr.style.backgroundColor = "rgba(245, 158, 11, 0.15)";
         }
         
-        const quadrantCell = c.type === "curve" 
-            ? `<span class="badge badge-s" style="border-color:#a78bfa !important; color:#c084fc !important;">Curve ${c.turn === 'L' ? 'Left' : 'Right'}</span>`
-            : `<span class="badge badge-${c.quad.toLowerCase()}">${c.quad === 'N' ? 'North' : 'South'}</span>`;
+        let quadrantCell, bearingCell, hemiCell, distanceCell;
+        let dnCell, deCell;
+        
+        if (c.isInvalid) {
+            quadrantCell = `<span class="badge badge-danger" style="background-color:#ef4444; color:#ffffff; border-color:#ef4444;">Invalid</span>`;
+            bearingCell = `<div style="color:#f87171; font-weight:bold; font-size:0.75rem; white-space:normal; word-break:break-word;">${escapeHTML(c.errorMsg)}</div>`;
+            hemiCell = `<span class="badge badge-n">-</span>`;
+            distanceCell = `-`;
+            dnCell = `-`;
+            deCell = `-`;
+        } else {
+            const escapedTurn = escapeHTML(c.turn);
+            const escapedQuad = escapeHTML(c.quad);
+            const escapedHemi = escapeHTML(c.hemi);
             
-        const bearingCell = c.type === "curve"
-            ? `<div>Ch: ${c.quad} ${fmtBear(c.bearing)} ${c.hemi}</div>
-               <div style="font-size:0.7rem; color:var(--text-muted)">Rad: ${c.radius.toFixed(1)} • Δ: ${fmtBear(c.deltaAngle)}</div>`
-            : `${fmtBear(c.bearing)}`;
-            
-        const hemiCell = `<span class="badge badge-${c.hemi.toLowerCase()}">${c.hemi === 'E' ? 'East' : 'West'}</span>`;
-            
-        const distanceCell = c.type === "curve"
-            ? `<div>Arc: ${c.distance.toFixed(2)}</div>
-               <div style="font-size:0.7rem; color:var(--text-muted)">Chord L: ${c.chordLength.toFixed(1)}</div>`
-            : `${c.distance.toFixed(2)}`;
+            quadrantCell = c.type === "curve" 
+                ? `<span class="badge badge-s" style="border-color:#a78bfa !important; color:#c084fc !important;">Curve ${escapedTurn === 'L' ? 'Left' : 'Right'}</span>`
+                : `<span class="badge badge-${escapedQuad.toLowerCase()}">${escapedQuad === 'N' ? 'North' : 'South'}</span>`;
+                
+            bearingCell = c.type === "curve"
+                ? `<div>Ch: ${escapedQuad} ${fmtBear(c.bearing)} ${escapedHemi}</div>
+                   <div style="font-size:0.7rem; color:var(--text-muted)">Rad: ${c.radius.toFixed(1)} • Δ: ${fmtBear(c.deltaAngle)}</div>`
+                : `${fmtBear(c.bearing)}`;
+                
+            hemiCell = `<span class="badge badge-${escapedHemi.toLowerCase()}">${escapedHemi === 'E' ? 'East' : 'West'}</span>`;
+                
+            distanceCell = c.type === "curve"
+                ? `<div>Arc: ${c.distance.toFixed(2)}</div>
+                   <div style="font-size:0.7rem; color:var(--text-muted)">Chord L: ${c.chordLength.toFixed(1)}</div>`
+                : `${c.distance.toFixed(2)}`;
+                
+            dnCell = c.deltaN.toFixed(3);
+            deCell = c.deltaE.toFixed(3);
+        }
 
         tr.innerHTML = `
             <td><div class="table-print-cell">${index + 1}</div></td>
@@ -789,8 +865,8 @@ function renderTable() {
             <td><div class="table-print-cell">${bearingCell}</div></td>
             <td><div class="table-print-cell">${hemiCell}</div></td>
             <td><div class="table-print-cell">${distanceCell}</div></td>
-            <td style="${c.deltaN >= 0 ? 'color:#a7f3d0' : 'color:#fecdd3'}"><div class="table-print-cell">${c.deltaN.toFixed(3)}</div></td>
-            <td style="${c.deltaE >= 0 ? 'color:#a7f3d0' : 'color:#fecdd3'}"><div class="table-print-cell">${c.deltaE.toFixed(3)}</div></td>
+            <td style="${!c.isInvalid && c.deltaN >= 0 ? 'color:#a7f3d0' : (!c.isInvalid ? 'color:#fecdd3' : '')}"><div class="table-print-cell">${dnCell}</div></td>
+            <td style="${!c.isInvalid && c.deltaE >= 0 ? 'color:#a7f3d0' : (!c.isInvalid ? 'color:#fecdd3' : '')}"><div class="table-print-cell">${deCell}</div></td>
             <td style="text-align: center;">
                 <div class="table-row-actions">
                     <button class="action-icon-btn" onclick="editCourse(${index})" title="Edit course">✏️</button>
@@ -815,6 +891,38 @@ function renderTable() {
         });
         
         courseTableBody.appendChild(tr);
+    });
+}
+
+function renderCoordinateTable() {
+    if (courses.length === 0) {
+        coordinateTableSection.classList.remove("print-visible");
+        return;
+    }
+    
+    const startNVal = startNorthingInput.value.trim();
+    const startEVal = startEastingInput.value.trim();
+    const hasStartCoords = (startNVal !== "" || startEVal !== "");
+    
+    if (!hasStartCoords) {
+        coordinateTableSection.classList.remove("print-visible");
+        return;
+    }
+    
+    coordinateTableSection.classList.add("print-visible");
+    coordinateTableBody.innerHTML = "";
+    
+    const pts = getAbsolutePointCoordinates();
+    pts.forEach(p => {
+        const tr = document.createElement("tr");
+        const nText = isNaN(p.n) ? "-" : p.n.toFixed(3);
+        const eText = isNaN(p.e) ? "-" : p.e.toFixed(3);
+        tr.innerHTML = `
+            <td><div class="table-print-cell">${escapeHTML(p.name)}</div></td>
+            <td><div class="table-print-cell">${nText}</div></td>
+            <td><div class="table-print-cell">${eText}</div></td>
+        `;
+        coordinateTableBody.appendChild(tr);
     });
 }
 
@@ -863,9 +971,35 @@ window.editCourse = function(index) {
     btnAddCourse.textContent = "Update Course";
     btnCancelEdit.style.display = "block";
     
+    if (c.isInvalid) {
+        const pd = c.partialData || {};
+        const isCurve = c.partialType === "curve";
+        
+        quadrantInput.value = pd.quad && (pd.quad === "N" || pd.quad === "S") ? pd.quad : "N";
+        hemisphereInput.value = pd.hemi && (pd.hemi === "E" || pd.hemi === "W") ? pd.hemi : "E";
+        bearingInput.value = pd.rawBearing || "";
+        
+        if (isCurve) {
+            switchTab("curve");
+            curveTurnInput.value = pd.turn && (pd.turn === "L" || pd.turn === "R") ? pd.turn : "L";
+            curveRadiusInput.value = pd.radius !== null && !isNaN(pd.radius) ? pd.radius : "";
+            curveArcLengthInput.value = pd.arcLength !== null && !isNaN(pd.arcLength) ? pd.arcLength : "";
+            curveDeltaInput.value = pd.deltaAngle !== null && !isNaN(pd.deltaAngle) ? fmtBearDMS(pd.deltaAngle) : "";
+            curveChordInput.value = pd.chordLength !== null && !isNaN(pd.chordLength) ? pd.chordLength : "";
+            updateCurveSolver();
+        } else {
+            switchTab("line");
+            distanceInput.value = pd.distance !== null && !isNaN(pd.distance) ? pd.distance : "";
+        }
+        
+        bearingInput.focus();
+        showToast(`Loaded partial course #${index + 1} data for correction: ${c.errorMsg}`, "info");
+        return;
+    }
+    
     quadrantInput.value = c.quad;
     hemisphereInput.value = c.hemi;
-    bearingInput.value = fmtBearDMS(c.bearing);
+    bearingInput.value = c.rawBearing || fmtBearDMS(c.bearing);
     
     if (c.type === "curve") {
         switchTab("curve");
@@ -909,6 +1043,8 @@ function saveToLibrary() {
         id: 'plat_' + Date.now(),
         name: name,
         lotDesignation: lot,
+        startNorthing: startNorthingInput.value.trim(),
+        startEasting: startEastingInput.value.trim(),
         courses: JSON.parse(JSON.stringify(courses)),
         updatedAt: new Date().toLocaleDateString()
     };
@@ -942,6 +1078,9 @@ function loadLibraryItem(id) {
     
     lotDesignation = item.lotDesignation || "";
     lotDesignationInput.value = lotDesignation;
+    
+    startNorthingInput.value = item.startNorthing || "";
+    startEastingInput.value = item.startEasting || "";
     
     courses = JSON.parse(JSON.stringify(item.courses));
     recalculatePlat();
@@ -988,14 +1127,390 @@ function renderLibraryList() {
                 <h4>${escapedName}</h4>
                 <p>${subtext}${item.courses.length} courses • Saved: ${item.updatedAt}</p>
             </div>
-            <button class="action-icon-btn delete" onclick="deleteLibraryItem('${item.id}', event)" title="Delete from library">🗑️</button>
+            <button class="action-icon-btn delete" title="Delete from library">🗑️</button>
         `;
+        
+        const deleteBtn = div.querySelector(".action-icon-btn.delete");
+        if (deleteBtn) {
+            deleteBtn.onclick = (event) => deleteLibraryItem(item.id, event);
+        }
         
         libraryList.appendChild(div);
     });
 }
 
 // --- Import & Export Features ---
+
+// Converts course properties to a 0-360 degree azimuth
+function getCourseAzimuth(course) {
+    const b = course.bearing;
+    const q = course.quad;
+    const h = course.hemi;
+    if (q === 'N' && h === 'E') return b;
+    if (q === 'S' && h === 'E') return 180 - b;
+    if (q === 'S' && h === 'W') return 180 + b;
+    if (q === 'N' && h === 'W') return 360 - b;
+    return 0;
+}
+
+// Calculates tangent direction at exit of course
+function getCourseEndTangent(course) {
+    const chordAz = getCourseAzimuth(course);
+    if (course.type === 'line') {
+        return chordAz;
+    } else {
+        const halfDelta = course.deltaAngle / 2;
+        if (course.turn === 'R') {
+            return (chordAz + halfDelta) % 360;
+        } else {
+            return (chordAz - halfDelta + 360) % 360;
+        }
+    }
+}
+
+// Converts a 0-360 degree azimuth back to quad, bearing, and hemi
+function azimuthToQuadBearingHemi(az) {
+    az = (az % 360 + 360) % 360;
+    let quad, hemi, bearing;
+    if (az >= 0 && az < 90) {
+        quad = 'N'; hemi = 'E'; bearing = az;
+    } else if (az >= 90 && az < 180) {
+        quad = 'S'; hemi = 'E'; bearing = 180 - az;
+    } else if (az >= 180 && az < 270) {
+        quad = 'S'; hemi = 'W'; bearing = az - 180;
+    } else {
+        quad = 'N'; hemi = 'W'; bearing = 360 - az;
+    }
+    return { quad, bearing, hemi };
+}
+
+// Parses explicit (N 35.0020 E) or shorthand (135.0020) CSV bearings
+function parseCsvBearing(bearingStr) {
+    bearingStr = bearingStr.trim().toUpperCase();
+    
+    const explicitMatch = bearingStr.match(/^([NS])\s*(.*?)\s*([EW])$/);
+    if (explicitMatch) {
+        const quad = explicitMatch[1];
+        const hemi = explicitMatch[3];
+        const angleStr = explicitMatch[2];
+        const parsed = parseBearingInput(angleStr);
+        if (parsed !== null) {
+            return {
+                bearing: parsed.bearing,
+                quad,
+                hemi
+            };
+        }
+    }
+    
+    const parsed = parseBearingInput(bearingStr);
+    if (parsed !== null && parsed.hasPrefix) {
+        return {
+            bearing: parsed.bearing,
+            quad: parsed.quad,
+            hemi: parsed.hemi
+        };
+    }
+    
+    return null;
+}
+
+// Parser for the custom comma-separated text format
+function parseCsvTextFile(content, fileName) {
+    const lines = content.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    const loadedCourses = [];
+    let errorCount = 0;
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.startsWith('#') || line.startsWith('//')) {
+            continue;
+        }
+        
+        const parts = line.split(',').map(p => p.trim());
+        if (parts.length < 3) {
+            loadedCourses.push({
+                type: "invalid",
+                isInvalid: true,
+                errorMsg: `Line ${i + 1}: Invalid format. Expected at least 3 values.`,
+                partialType: "line",
+                partialData: {}
+            });
+            errorCount++;
+            continue;
+        }
+        
+        const courseNum = parts[0];
+        
+        let isCurve = false;
+        let bearingStr = null;
+        let paramStartIndex = -1;
+        
+        if (parts[1].toUpperCase() === 'C') {
+            isCurve = true;
+            paramStartIndex = 2;
+        } else if (parts[2].toUpperCase() === 'C') {
+            isCurve = true;
+            bearingStr = parts[1];
+            paramStartIndex = 3;
+        }
+        
+        try {
+            if (isCurve) {
+                let radius = null;
+                let chordLength = null;
+                let arcLength = null;
+                let deltaAngle = null;
+                let turn = null;
+                
+                // Pre-scan to check if explicit chord length prefixes (CL or CD) are present
+                const hasChordLengthParam = parts.slice(paramStartIndex).some(p => {
+                    const u = p.trim().toUpperCase();
+                    return u.startsWith("CL") || u.startsWith("CD");
+                });
+                
+                for (let j = paramStartIndex; j < parts.length; j++) {
+                    const param = parts[j].trim().toUpperCase();
+                    if (!param) continue;
+                    
+                    if (param.startsWith("CB")) {
+                        bearingStr = parts[j].trim().substring(2);
+                    } else if (param.startsWith("CL")) {
+                        chordLength = parseFloat(param.substring(2));
+                    } else if (param.startsWith("CD")) {
+                        chordLength = parseFloat(param.substring(2));
+                    } else if (param.startsWith("CH")) {
+                        if (hasChordLengthParam) {
+                            bearingStr = parts[j].trim().substring(2); // Treat CH as Chord Bearing shorthand
+                        } else {
+                            chordLength = parseFloat(param.substring(2)); // Treat CH as Chord Length
+                        }
+                    } else if (param.startsWith("LA")) {
+                        const valStr = param.substring(2);
+                        if (valStr) {
+                            arcLength = parseFloat(valStr);
+                        }
+                        turn = 'L';
+                    } else if (param.startsWith("RA")) {
+                        const valStr = param.substring(2);
+                        if (valStr) {
+                            arcLength = parseFloat(valStr);
+                        }
+                        turn = 'R';
+                    } else if (param.startsWith("R")) {
+                        radius = parseFloat(param.substring(1));
+                    } else if (param.startsWith("D")) {
+                        const rawD = parseFloat(param.substring(1));
+                        deltaAngle = bearDec(rawD);
+                    } else if (param === 'L' || param === 'R') {
+                        turn = param;
+                    }
+                }
+                
+                if (!turn) {
+                    throw new Error(`Course #${courseNum} (on line ${i + 1}) (Curve): Turn direction is missing. Please add 'LA' (Left Arc) or 'RA' (Right Arc) for arc length, or specify turn direction as 'L' or 'R'.`);
+                }
+                
+                const provided = [];
+                if (radius !== null && !isNaN(radius)) provided.push("Radius (R)");
+                if (arcLength !== null && !isNaN(arcLength)) provided.push("Arc Length (LA/RA)");
+                if (chordLength !== null && !isNaN(chordLength)) provided.push("Chord Distance (CH/CD/CL)");
+                if (deltaAngle !== null && !isNaN(deltaAngle)) provided.push("Delta Angle (D)");
+                
+                if (provided.length < 2) {
+                    const missing = [];
+                    if (radius === null) missing.push("Radius (R)");
+                    if (arcLength === null) missing.push("Arc Length (LA/RA)");
+                    if (chordLength === null) missing.push("Chord Distance (CH/CD/CL)");
+                    if (deltaAngle === null) missing.push("Delta Angle (D)");
+                    
+                    throw new Error(`Course #${courseNum} (on line ${i + 1}) (Curve): Not enough parameters to compute curve. Provided: ${provided.join(', ') || 'None'}. Please provide at least one of the following to resolve the curve geometry: ${missing.join(', ')}.`);
+                }
+                
+                const solved = solveCurve(radius, arcLength, deltaAngle, chordLength);
+                if (!solved || isNaN(solved.R) || isNaN(solved.L) || isNaN(solved.C) || isNaN(solved.Delta) || solved.R <= 0 || solved.L <= 0 || solved.C <= 0 || solved.Delta <= 0) {
+                    throw new Error(`Course #${courseNum} (on line ${i + 1}) (Curve): Invalid curve geometry combination.`);
+                }
+                
+                let quad, bearing, hemi;
+                if (bearingStr) {
+                    const parsedBear = parseCsvBearing(bearingStr);
+                    if (parsedBear === null) {
+                        throw new Error(`Course #${courseNum} (on line ${i + 1}) (Curve): Invalid bearing value "${bearingStr}". Formats: QDD.MMSS (e.g. 135.0020) or explicit (e.g. N 35.0020 E).`);
+                    }
+                    quad = parsedBear.quad;
+                    bearing = parsedBear.bearing;
+                    hemi = parsedBear.hemi;
+                } else {
+                    if (loadedCourses.length === 0) {
+                        throw new Error(`Course #${courseNum} (on line ${i + 1}) (Curve): No chord bearing specified, and there is no previous course to calculate a tangent curve. Please specify a bearing (e.g. "1, 135.0020, C, ...").`);
+                    }
+                    const prev = loadedCourses[loadedCourses.length - 1];
+                    if (prev.isInvalid) {
+                        throw new Error(`Course #${courseNum} (on line ${i + 1}) (Curve): Cannot compute tangent chord bearing because the previous course is invalid.`);
+                    }
+                    const startTangent = getCourseEndTangent(prev);
+                    const halfDelta = solved.Delta / 2;
+                    let chordAz;
+                    if (turn === 'R') {
+                        chordAz = (startTangent + halfDelta) % 360;
+                    } else {
+                        chordAz = (startTangent - halfDelta + 360) % 360;
+                    }
+                    const converted = azimuthToQuadBearingHemi(chordAz);
+                    quad = converted.quad;
+                    bearing = converted.bearing;
+                    hemi = converted.hemi;
+                }
+                
+                loadedCourses.push({
+                    type: "curve",
+                    quad,
+                    bearing,
+                    hemi,
+                    distance: solved.L,
+                    chordLength: solved.C,
+                    radius: solved.R,
+                    deltaAngle: solved.Delta,
+                    turn,
+                    rawBearing: bearingStr || fmtBearDMS(bearing)
+                });
+                
+            } else {
+                bearingStr = parts[1];
+                const distance = parseFloat(parts[2]);
+                
+                const parsedBear = parseCsvBearing(bearingStr);
+                if (parsedBear === null) {
+                    throw new Error(`Course #${courseNum} (on line ${i + 1}): Invalid bearing value "${bearingStr}". Formats: QDD.MMSS (e.g. 135.0020) or explicit (e.g. N 35.0020 E).`);
+                }
+                if (isNaN(distance) || distance <= 0) {
+                    throw new Error(`Course #${courseNum} (on line ${i + 1}): Invalid distance value "${parts[2]}". Must be greater than zero.`);
+                }
+                
+                loadedCourses.push({
+                    type: "line",
+                    quad: parsedBear.quad,
+                    bearing: parsedBear.bearing,
+                    hemi: parsedBear.hemi,
+                    distance,
+                    rawBearing: bearingStr
+                });
+            }
+        } catch (err) {
+            let quad = null, hemi = null, rawBearing = null;
+            let radius = null, chordLength = null, arcLength = null, deltaAngle = null, turn = null;
+            
+            if (isCurve) {
+                const hasChordLengthParam = parts.slice(paramStartIndex).some(p => {
+                    const u = p.trim().toUpperCase();
+                    return u.startsWith("CL") || u.startsWith("CD");
+                });
+                
+                let cbParam = parts.slice(paramStartIndex).find(p => {
+                    const u = p.trim().toUpperCase();
+                    if (u.startsWith("CB")) return true;
+                    if (hasChordLengthParam && u.startsWith("CH")) return true;
+                    return false;
+                });
+                if (cbParam) {
+                    bearingStr = cbParam.trim().substring(2);
+                }
+                
+                let rParam = parts.slice(paramStartIndex).find(p => {
+                    const u = p.trim().toUpperCase();
+                    return u.startsWith("R") && !u.startsWith("RA");
+                });
+                if (rParam) radius = parseFloat(rParam.trim().substring(1));
+                
+                let clParam = parts.slice(paramStartIndex).find(p => {
+                    const u = p.trim().toUpperCase();
+                    if (u.startsWith("CL") || u.startsWith("CD")) return true;
+                    if (!hasChordLengthParam && u.startsWith("CH")) return true;
+                    return false;
+                });
+                if (clParam) {
+                    const prefixLen = clParam.trim().toUpperCase().startsWith("CH") || clParam.trim().toUpperCase().startsWith("CL") || clParam.trim().toUpperCase().startsWith("CD") ? 2 : 1;
+                    chordLength = parseFloat(clParam.trim().substring(prefixLen));
+                }
+                
+                let laParam = parts.slice(paramStartIndex).find(p => {
+                    const u = p.trim().toUpperCase();
+                    return u.startsWith("LA") || u.startsWith("RA");
+                });
+                if (laParam) {
+                    const u = laParam.trim().toUpperCase();
+                    const valStr = laParam.trim().substring(2);
+                    if (valStr) arcLength = parseFloat(valStr);
+                    turn = u.startsWith("LA") ? "L" : "R";
+                } else {
+                    let tParam = parts.slice(paramStartIndex).find(p => {
+                        const u = p.trim().toUpperCase();
+                        return u === "L" || u === "R";
+                    });
+                    if (tParam) turn = tParam.trim().toUpperCase();
+                }
+                
+                let dParam = parts.slice(paramStartIndex).find(p => {
+                    const u = p.trim().toUpperCase();
+                    return u.startsWith("D");
+                });
+                if (dParam) {
+                    const rawD = parseFloat(dParam.trim().substring(1));
+                    if (!isNaN(rawD)) deltaAngle = bearDec(rawD);
+                }
+            }
+            
+            if (bearingStr) {
+                const parsedBear = parseCsvBearing(bearingStr);
+                if (parsedBear !== null) {
+                    quad = parsedBear.quad;
+                    hemi = parsedBear.hemi;
+                }
+                rawBearing = bearingStr;
+            }
+            
+            loadedCourses.push({
+                type: "invalid",
+                isInvalid: true,
+                errorMsg: err.message,
+                partialType: isCurve ? "curve" : "line",
+                partialData: {
+                    quad,
+                    hemi,
+                    rawBearing,
+                    radius,
+                    chordLength,
+                    arcLength,
+                    deltaAngle,
+                    turn,
+                    distance: !isCurve ? parseFloat(parts[2]) : null
+                }
+            });
+            errorCount++;
+        }
+    }
+    
+    const name = fileName.replace(/\.[^/.]+$/, "");
+    return { name, lot: "", courses: loadedCourses, errorCount };
+}
+
+// Auto-detect format and route to correct parser
+function detectAndParseFile(content, fileName) {
+    const lines = content.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    if (lines.length === 0) {
+        throw new Error("Empty file");
+    }
+    
+    const secondLine = lines[1];
+    const looksLikeRetro = lines.length >= 2 && /^\d+$/.test(secondLine);
+    
+    if (looksLikeRetro) {
+        return parseMapFile(content);
+    } else {
+        return parseCsvTextFile(content, fileName);
+    }
+}
 
 // Parse retro .MAP file format
 function parseMapFile(content) {
@@ -1018,6 +1533,7 @@ function parseMapFile(content) {
     
     const loadedCourses = [];
     let lineIdx = 2;
+    let errorCount = 0;
     for (let i = 0; i < numCourses; i++) {
         if (lineIdx + 3 >= lines.length) {
             throw new Error(`Invalid file format: missing details for course #${i + 1}`);
@@ -1028,50 +1544,84 @@ function parseMapFile(content) {
         const hemi = lines[lineIdx + 2].toUpperCase();
         const distance = parseFloat(lines[lineIdx + 3]);
         
-        if (isNaN(bearingDec) || (hemi !== 'E' && hemi !== 'W') || isNaN(distance)) {
-            throw new Error(`Invalid data in course #${i + 1} fields`);
-        }
-        
-        if (rawQuad.includes(" | CURVE | ")) {
-            const parts = rawQuad.split(" | ");
-            const quad = parts[0].toUpperCase();
-            const turn = parts[2].toUpperCase();
-            const radius = parseFloat(parts[3]);
-            const arcLength = parseFloat(parts[4]);
-            const chordLength = parseFloat(parts[5]);
-            const deltaAngle = parseFloat(parts[6]);
-            
-            loadedCourses.push({
-                type: "curve",
-                quad,
-                bearing: bearingDec,
-                hemi,
-                distance: arcLength, // Arc Length
-                chordLength,
-                radius,
-                deltaAngle,
-                turn,
-                rawBearing: fmtBearDMS(bearingDec)
-            });
-        } else {
-            const quad = rawQuad.toUpperCase();
-            if (quad !== 'N' && quad !== 'S') {
-                throw new Error(`Invalid quadrant value: ${quad}`);
+        try {
+            if (isNaN(bearingDec) || (hemi !== 'E' && hemi !== 'W') || isNaN(distance)) {
+                throw new Error(`Invalid data in course #${i + 1} fields`);
             }
+            
+            if (rawQuad.includes(" | CURVE | ")) {
+                const parts = rawQuad.split(" | ");
+                if (parts.length < 7) {
+                    throw new Error(`Invalid curve format in course #${i + 1}`);
+                }
+                const quad = parts[0].toUpperCase();
+                const turn = parts[2].toUpperCase();
+                const radius = parseFloat(parts[3]);
+                const arcLength = parseFloat(parts[4]);
+                const chordLength = parseFloat(parts[5]);
+                const deltaAngle = parseFloat(parts[6]);
+                
+                if (quad !== 'N' && quad !== 'S') {
+                    throw new Error(`Invalid curve quadrant value in course #${i + 1}: ${quad}`);
+                }
+                if (turn !== 'L' && turn !== 'R') {
+                    throw new Error(`Invalid curve turn direction in course #${i + 1}: ${turn}`);
+                }
+                if (isNaN(radius) || isNaN(arcLength) || isNaN(chordLength) || isNaN(deltaAngle)) {
+                    throw new Error(`Invalid curve measurements in course #${i + 1}`);
+                }
+                
+                loadedCourses.push({
+                    type: "curve",
+                    quad,
+                    bearing: bearingDec,
+                    hemi,
+                    distance: arcLength, // Arc Length
+                    chordLength,
+                    radius,
+                    deltaAngle,
+                    turn,
+                    rawBearing: fmtBearDMS(bearingDec)
+                });
+            } else {
+                const quad = rawQuad.toUpperCase();
+                if (quad !== 'N' && quad !== 'S') {
+                    throw new Error(`Invalid quadrant value in course #${i + 1}: ${quad}`);
+                }
+                loadedCourses.push({
+                    type: "line",
+                    quad,
+                    bearing: bearingDec,
+                    hemi,
+                    distance,
+                    rawBearing: fmtBearDMS(bearingDec)
+                });
+            }
+        } catch (err) {
             loadedCourses.push({
-                type: "line",
-                quad,
-                bearing: bearingDec,
-                hemi,
-                distance,
-                rawBearing: fmtBearDMS(bearingDec)
+                type: "invalid",
+                isInvalid: true,
+                errorMsg: err.message,
+                partialType: rawQuad.includes(" | CURVE | ") ? "curve" : "line",
+                partialData: {
+                    quad: rawQuad.includes(" | CURVE | ") ? (rawQuad.split(" | ")[0].toUpperCase() || null) : (rawQuad.toUpperCase() || null),
+                    hemi: (hemi === 'E' || hemi === 'W') ? hemi : null,
+                    rawBearing: !isNaN(bearingDec) ? fmtBearDMS(bearingDec) : null,
+                    radius: rawQuad.includes(" | CURVE | ") ? (parseFloat(rawQuad.split(" | ")[3]) || null) : null,
+                    arcLength: rawQuad.includes(" | CURVE | ") ? (parseFloat(rawQuad.split(" | ")[4]) || null) : null,
+                    chordLength: rawQuad.includes(" | CURVE | ") ? (parseFloat(rawQuad.split(" | ")[5]) || null) : null,
+                    deltaAngle: rawQuad.includes(" | CURVE | ") ? (parseFloat(rawQuad.split(" | ")[6]) || null) : null,
+                    turn: rawQuad.includes(" | CURVE | ") ? (rawQuad.split(" | ")[2].toUpperCase() || null) : null,
+                    distance: !isNaN(distance) ? distance : null
+                }
             });
+            errorCount++;
         }
         
         lineIdx += 4;
     }
     
-    return { name, lot, courses: loadedCourses };
+    return { name, lot, courses: loadedCourses, errorCount };
 }
 
 // Generate retro .MAP output
@@ -1243,6 +1793,16 @@ function initEvents() {
         draw();
     });
     
+    // Show Last Error recall handler
+    const btnShowLastError = document.getElementById("btnShowLastError");
+    if (btnShowLastError) {
+        btnShowLastError.addEventListener("click", () => {
+            if (lastErrorMsg) {
+                showToast(lastErrorMsg, "error");
+            }
+        });
+    }
+    
     function updateTitleOverlay() {
         platTitleDisplay.textContent = platName;
         platSubDisplay.textContent = `${lotDesignation ? lotDesignation + ' • ' : ''}${courses.length} course${courses.length === 1 ? '' : 's'}`;
@@ -1258,6 +1818,14 @@ function initEvents() {
     lotDesignationInput.addEventListener("input", () => {
         lotDesignation = lotDesignationInput.value.trim();
         updateTitleOverlay();
+    });
+
+    // Starting Coordinates Sync
+    startNorthingInput.addEventListener("input", () => {
+        recalculatePlat();
+    });
+    startEastingInput.addEventListener("input", () => {
+        recalculatePlat();
     });
 
     // Dynamic Quadrant code sync while typing
@@ -1353,17 +1921,32 @@ function initEvents() {
         }
 
         if (editingIndex !== null) {
+            const wasEditingInvalid = !!courses[editingIndex].isInvalid;
             courses[editingIndex] = newCourse;
+            recalculatePlat();
+            
+            if (wasEditingInvalid) {
+                const nextInvalidIndex = courses.findIndex(c => c.isInvalid);
+                if (nextInvalidIndex !== -1) {
+                    editCourse(nextInvalidIndex);
+                    zoomToFit();
+                    draw();
+                    return;
+                } else {
+                    showToast("All course errors corrected!");
+                }
+            } else {
+                showToast("Course updated successfully");
+            }
+            
             editingIndex = null;
             btnAddCourse.textContent = "Add Course";
             btnCancelEdit.style.display = "none";
-            showToast("Course updated successfully");
         } else {
             courses.push(newCourse);
             showToast("Course added successfully");
+            recalculatePlat();
         }
-        
-        recalculatePlat();
         
         // Auto zoom fit to show newly added segments
         zoomToFit();
@@ -1385,6 +1968,8 @@ function initEvents() {
         if (courses.length === 0) return;
         if (confirm("Are you sure you want to clear the entire plat?")) {
             courses = [];
+            startNorthingInput.value = "";
+            startEastingInput.value = "";
             if (editingIndex !== null) {
                 cancelEdit();
             }
@@ -1492,14 +2077,6 @@ function initEvents() {
     let oldWidth, oldHeight, oldZoom, oldPanX, oldPanY;
 
     window.addEventListener("beforeprint", () => {
-        // Secret integrity check
-        const integrityCheck = document.querySelector(".print-author");
-        if (!integrityCheck || !integrityCheck.textContent.includes("Stu\x20Cameron")) {
-            courses = [];
-            recalculatePlat();
-            return;
-        }
-
         if (courses.length === 0) return;
 
         // Update printing metadata grid fields
@@ -1507,6 +2084,11 @@ function initEvents() {
         document.getElementById("printLotDesignation").textContent = lotDesignation || "N/A";
         document.getElementById("printDate").textContent = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString();
         document.getElementById("printPrecision").textContent = precisionVal.textContent;
+
+        const startNVal = startNorthingInput.value.trim();
+        const startEVal = startEastingInput.value.trim();
+        printStartNorthing.textContent = startNVal !== "" ? parseFloat(startNVal).toFixed(3) : "N/A";
+        printStartEasting.textContent = startEVal !== "" ? parseFloat(startEVal).toFixed(3) : "N/A";
 
         // Calculate area for printing
         const areaSqFt = calculateTraverseArea();
@@ -1551,13 +2133,6 @@ function initEvents() {
     // Print Report Button
     const btnPrintReport = document.getElementById("btnPrintReport");
     btnPrintReport.addEventListener("click", () => {
-        // Secret integrity check
-        const integrityCheck = document.querySelector(".print-author");
-        if (!integrityCheck || !integrityCheck.textContent.includes("Stu\x20Cameron")) {
-            courses = [];
-            recalculatePlat();
-            return;
-        }
         if (courses.length === 0) {
             showToast("No traverse data to print", "error");
             return;
@@ -1629,7 +2204,7 @@ function initEvents() {
         const reader = new FileReader();
         reader.onload = function(evt) {
             try {
-                const parsed = parseMapFile(evt.target.result);
+                const parsed = detectAndParseFile(evt.target.result, file.name);
                 platName = parsed.name || file.name.replace(/\.[^/.]+$/, "");
                 platNameInput.value = platName;
                 platTitleDisplay.textContent = platName;
@@ -1637,12 +2212,23 @@ function initEvents() {
                 lotDesignation = parsed.lot || "";
                 lotDesignationInput.value = lotDesignation;
                 
+                startNorthingInput.value = "";
+                startEastingInput.value = "";
+                
                 courses = parsed.courses;
                 recalculatePlat();
                 zoomToFit();
                 draw();
                 
-                showToast(`Successfully imported: "${platName}"`);
+                if (parsed.errorCount > 0) {
+                    const firstInvalid = courses.findIndex(c => c.isInvalid);
+                    if (firstInvalid !== -1) {
+                        editCourse(firstInvalid);
+                    }
+                    showToast(`Imported "${platName}" with ${parsed.errorCount} invalid course(s). Loaded Course #${firstInvalid + 1} into editor for correction.`, "error");
+                } else {
+                    showToast(`Successfully imported: "${platName}"`);
+                }
             } catch (err) {
                 console.error(err);
                 showToast(`Import error: ${err.message}`, "error");

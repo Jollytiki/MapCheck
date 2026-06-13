@@ -708,8 +708,8 @@ tr:hover td {
 }
 
 /* Print Only & QA/QC Styles */
-.print-only-header, .print-only-footer {
-    display: none;
+.print-only-header, .print-only-footer, #coordinateTableSection {
+    display: none !important;
 }
 
 @media print {
@@ -926,6 +926,11 @@ tr:hover td {
         border-top: 2px dashed #94a3b8;
         padding-top: 1rem;
         font-size: 0.8rem;
+    }
+
+    #coordinateTableSection.print-visible {
+        display: block !important;
+        page-break-inside: avoid;
     }
 }
 
