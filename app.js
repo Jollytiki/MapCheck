@@ -1992,6 +1992,37 @@ function initEvents() {
         if (e.target === libraryModal) libraryModal.classList.remove("active");
     });
     
+    // Help Modal triggers
+    const helpModal = document.getElementById("helpModal");
+    const btnHelpImport = document.getElementById("btnHelpImport");
+    const btnCloseHelp = document.getElementById("btnCloseHelp");
+    const btnCancelHelp = document.getElementById("btnCancelHelp");
+    
+    if (btnHelpImport && helpModal) {
+        btnHelpImport.addEventListener("click", () => {
+            helpModal.classList.add("active");
+        });
+    }
+    if (btnCloseHelp && helpModal) {
+        btnCloseHelp.addEventListener("click", () => helpModal.classList.remove("active"));
+    }
+    if (btnCancelHelp && helpModal) {
+        btnCancelHelp.addEventListener("click", () => helpModal.classList.remove("active"));
+    }
+    if (helpModal) {
+        helpModal.addEventListener("click", (e) => {
+            if (e.target === helpModal) helpModal.classList.remove("active");
+        });
+    }
+    
+    // Global ESC key to close active modals
+    window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+            const activeModals = document.querySelectorAll(".modal-overlay.active");
+            activeModals.forEach(modal => modal.classList.remove("active"));
+        }
+    });
+    
     // Zoom control buttons
     btnZoomIn.addEventListener("click", () => {
         zoom *= 1.25;

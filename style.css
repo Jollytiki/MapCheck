@@ -620,6 +620,14 @@ tr:hover td {
     gap: 1rem;
 }
 
+.modal-container.modal-lg {
+    max-width: 680px;
+}
+
+.modal-container.modal-lg .modal-body {
+    max-height: 65vh;
+}
+
 .modal-footer {
     padding: 1.25rem;
     border-top: 1px solid var(--border-color);

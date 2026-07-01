@@ -47,10 +47,13 @@
             <button class="btn btn-primary btn-sm" id="btnExportMap" title="Export .MAP File">
                 💾 Export .MAP
             </button>
-            <label class="btn btn-secondary btn-sm" style="margin: 0; cursor: pointer;" title="Import .MAP File">
-                📂 Import .MAP
+            <label class="btn btn-secondary btn-sm" style="margin: 0; cursor: pointer;" title="Import .MAP/Text File">
+                📂 Import File
                 <input type="file" id="btnImportMap" accept=".MAP,.txt" style="display: none;">
             </label>
+            <button class="btn btn-secondary btn-sm" id="btnHelpImport" title="Import File Format Help" style="display: flex; align-items: center; gap: 0.25rem;">
+                ❓ Format Help
+            </button>
         </div>
     </header>
 
@@ -309,6 +312,92 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" id="btnCancelLibrary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Help Modal -->
+    <div class="modal-overlay" id="helpModal">
+        <div class="modal-container modal-lg">
+            <div class="modal-header">
+                <h2>Text / CSV Import File Formats</h2>
+                <button class="modal-close" id="btnCloseHelp">&times;</button>
+            </div>
+            <div class="modal-body">
+                <section>
+                    <h3 style="color: var(--accent-cyan); font-size: 1.05rem; margin-bottom: 0.5rem; font-weight: 600;">Overview</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem; line-height: 1.4;">
+                        You can import traverses using standard <strong>.MAP</strong> files or custom plain text files (<strong>.txt</strong> or CSV). Comment lines beginning with <code>#</code> or <code>//</code> are ignored.
+                    </p>
+                </section>
+                
+                <section style="border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+                    <h3 style="color: var(--accent-cyan); font-size: 1.05rem; margin-bottom: 0.5rem; font-weight: 600;">1. Straight Line Courses</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem; line-height: 1.4;">
+                        Format: <code>Course#, Bearing, Distance</code>
+                    </p>
+                    <div style="background-color: var(--bg-base); padding: 0.6rem 0.8rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: 0.775rem; border: 1px solid var(--border-color); color: var(--text-primary); margin-bottom: 0.5rem; line-height: 1.3;">
+                        1, N 45.3015 E, 150.25<br>
+                        2, 145.3015, 125.50
+                    </div>
+                    <ul style="font-size: 0.8rem; color: var(--text-secondary); padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.25rem; line-height: 1.35;">
+                        <li><strong>Bearing Format:</strong> Explicit quadrant (e.g. <code>N 45.3015 E</code>, <code>S 89-30-00 W</code>) or shorthand code (e.g. <code>145.3015</code>, where the first digit 1-4 designates the quadrant: 1=NE, 2=SE, 3=SW, 4=NW, followed by DD.MMSS or DD-MM-SS).</li>
+                        <li><strong>Distance:</strong> Straight-line length in feet or meters.</li>
+                    </ul>
+                </section>
+                
+                <section style="border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+                    <h3 style="color: var(--accent-cyan); font-size: 1.05rem; margin-bottom: 0.5rem; font-weight: 600;">2. Circular Curve Courses</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem; line-height: 1.4;">
+                        Format: <code>Course#, [Chord Bearing], C, TurnDirection, Parameter1, Parameter2</code>
+                    </p>
+                    <div style="background-color: var(--bg-base); padding: 0.6rem 0.8rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: 0.775rem; border: 1px solid var(--border-color); color: var(--text-primary); margin-bottom: 0.5rem; line-height: 1.3;">
+                        # Curve with explicit chord bearing (prefixed with CB):<br>
+                        3, CBN 45-00-00 E, C, R500, LA157.08<br>
+                        # Tangent curve (chord bearing is automatically calculated from previous course tangent):<br>
+                        4, C, R300, RA120.00
+                    </div>
+                    <ul style="font-size: 0.8rem; color: var(--text-secondary); padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.25rem; line-height: 1.35;">
+                        <li><strong>Chord Bearing (Optional):</strong> Prefixed with <code>CB</code> (e.g. <code>CBN 45.0000 E</code>). If omitted, the curve starts tangent to the preceding course.</li>
+                        <li><strong>Curve Indicator:</strong> <code>C</code> specifies this course is a circular curve.</li>
+                        <li><strong>Turn Direction &amp; Arc Length:</strong> Use <code>LA</code> for Turn Left or <code>RA</code> for Turn Right, followed immediately by the arc length (e.g. <code>LA157.08</code>). Alternatively, specify turn direction as a standalone parameter <code>L</code> or <code>R</code>.</li>
+                        <li><strong>Curve Parameters (Provide exactly two of the following to resolve geometry):</strong>
+                            <ul style="padding-left: 1rem; margin-top: 0.25rem; display: flex; flex-direction: column; gap: 0.15rem;">
+                                <li><code>R[value]</code> — Radius (e.g. <code>R500</code>)</li>
+                                <li><code>LA[value]</code> / <code>RA[value]</code> — Arc Length (e.g. <code>LA157.08</code>)</li>
+                                <li><code>CH[value]</code> / <code>CD[value]</code> / <code>CL[value]</code> — Chord Length (e.g. <code>CH120</code>)</li>
+                                <li><code>D[value]</code> — Delta Angle in DD.MMSS format (e.g. <code>D17.1122</code> for 17°11'22")</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </section>
+                
+                <section style="border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+                    <h3 style="color: var(--accent-cyan); font-size: 1.05rem; margin-bottom: 0.5rem; font-weight: 600;">Full Traverse Example (.txt / CSV)</h3>
+                    <pre style="background-color: var(--bg-base); padding: 0.6rem 0.8rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: 0.775rem; border: 1px solid var(--border-color); color: var(--text-primary); white-space: pre-wrap; margin: 0; line-height: 1.3;"># Plat Example Traverse
+1, N 00-15-20 E, 240.50
+2, S 89-45-00 E, 150.00
+3, C, R100, RA157.08
+4, S 00-15-20 W, 140.50
+5, N 89-45-00 W, 250.00</pre>
+                </section>
+            </div>
+            <section style="border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+                <h3 style="color: var(--accent-cyan); font-size: 1.05rem; margin-bottom: 0.5rem; font-weight: 600;">Command Summary</h3>
+                <ul style="font-size: 0.85rem; color: var(--text-secondary); line-height:1.4;">
+                    <li><code>#</code> – Comment line (ignored)</li>
+                    <li><code>//</code> – Comment line (ignored)</li>
+                    <li><code>Course#, Bearing, Distance</code> – Straight line course</li>
+                    <li><code>Course#, C, R..., LA...</code> – Circular curve with radius and arc length</li>
+                    <li><code>CBN 45-00-00 E</code> – Optional chord bearing for curve</li>
+                    <li><code>R[value]</code> – Radius</li>
+                    <li><code>LA[value]</code> / <code>RA[value]</code> – Arc length (Left/Right)</li>
+                    <li><code>CH[value]</code> / <code>CD[value]</code> / <code>CL[value]</code> – Chord length</li>
+                    <li><code>D[value]</code> – Delta angle (DD.MMSS)</li>
+                </ul>
+            </section>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btnCancelHelp">Close</button>
             </div>
         </div>
     </div>
