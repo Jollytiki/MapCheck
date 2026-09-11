@@ -10,8 +10,16 @@ the reference for the file format and the survey math.
 
 ## Running it
 
-As a standalone executable — the whole app is inside the binary, so there is
-nothing to install and nothing to keep beside it:
+As a macOS app — double-click it, the app opens in your browser, and closing
+the last tab quits it:
+
+```sh
+./scripts/build-bundle.sh          # builds dist/MapCheck.app
+open dist/MapCheck.app
+cp -r dist/MapCheck.app /Applications/
+```
+
+Or as a plain executable, which is all the bundle wraps:
 
 ```sh
 ./scripts/build-app.sh      # builds target/release/mapcheck
@@ -112,6 +120,27 @@ them on a loopback port, and opens a browser. It binds to `127.0.0.1` only.
 That builds the wasm first if `./pkg` is missing. Building without the wasm
 also works — the binary is smaller, says so on startup, and runs on the
 JavaScript fallback.
+
+## The macOS app bundle
+
+`scripts/build-bundle.sh` wraps the same binary in `dist/MapCheck.app`, with
+an icon drawn by `scripts/make-icon.py` (standard library only — no image
+dependencies).
+
+The bundle sets `LSUIElement`, so there is no Dock icon and no Terminal
+window: the browser is the whole interface. That leaves the question of how to
+quit it, which the binary answers itself. In bundle mode it injects a small
+heartbeat script into the page and exits about fifteen seconds after the last
+tab stops checking in. Closing the tab closes the app.
+
+That behaviour is tied to the bundle, not forced on everyone — at a terminal
+it stays running and Ctrl+C is the way out. `--quit-when-idle` and
+`--stay-running` override the default either way.
+
+The bundle is ad-hoc signed, which is enough to run on the machine that built
+it. It is not signed with a Developer ID and is not notarised, so another Mac
+will quarantine it on download; the owner can clear that with
+`xattr -d com.apple.quarantine MapCheck.app`.
 
 ## File formats
 

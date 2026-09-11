@@ -121,3 +121,49 @@ jobs:
           fi
 
           echo "Binary serves the app with the wasm embedded."
+
+  bundle:
+    name: macOS app bundle
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      # Assembling the bundle has its own failure modes — a malformed
+      # Info.plist, an icon that will not pack, a signature macOS rejects —
+      # none of which the Linux jobs would notice.
+      - name: Build the app bundle
+        run: ./scripts/build-bundle.sh
+
+      - name: Check the bundle is well formed
+        run: |
+          plutil -lint dist/MapCheck.app/Contents/Info.plist
+          codesign --verify --strict --verbose=2 dist/MapCheck.app
+          test -f dist/MapCheck.app/Contents/Resources/AppIcon.icns
+          test -x dist/MapCheck.app/Contents/MacOS/mapcheck
+
+      # The bundle quits itself when no browser checks in, so a run that exits
+      # on its own is the behaviour working, not a failure.
+      - name: Check the bundled binary serves the app
+        run: |
+          ./dist/MapCheck.app/Contents/MacOS/mapcheck \
+            --no-browser --stay-running --port 8731 &
+          server=$!
+          trap 'kill $server 2>/dev/null || true' EXIT
+
+          for _ in $(seq 1 30); do
+            curl -fsS -o /dev/null http://127.0.0.1:8731/ && break
+            sleep 0.5
+          done
+
+          curl -fsS -o /dev/null http://127.0.0.1:8731/pkg/mapcheck_wasm_bg.wasm
+          echo "Bundled binary serves the app."
