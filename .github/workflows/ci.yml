@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Lets you re-run the checks by hand from the Actions tab.
+  workflow_dispatch:
+
+# A second push to the same branch cancels the first run rather than queueing.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Tests and lints
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Formatting
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test --workspace --locked
+
+  parity:
+    name: Rust core still matches app.js
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The parity fixtures are generated from the real app.js functions. If
+      # editing app.js changes what they produce, the committed fixtures are
+      # stale and the Rust core has silently stopped matching the JavaScript.
+      - name: Regenerate parity fixtures from app.js
+        run: node scripts/gen-parity-fixtures.mjs
+
+      - name: Fail if app.js and the committed fixtures disagree
+        run: |
+          if ! git diff --exit-code -- crates/mapcheck-core/tests/fixtures/parity.json; then
+            echo
+            echo "::error::app.js behaviour changed but the parity fixtures were not updated."
+            echo "Run: node scripts/gen-parity-fixtures.mjs"
+            echo "Then re-run 'cargo test' and make the Rust core match before committing."
+            exit 1
+          fi
+
+      # Against freshly generated fixtures, so this compares the Rust core to
+      # the app.js in this commit rather than to whatever was committed.
+      - name: Parity tests
+        run: cargo test --locked -p mapcheck-core --test parity
+
+  build:
+    name: WebAssembly and standalone binary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      - name: Build the WebAssembly core
+        run: ./scripts/build-wasm.sh
+
+      - name: Build the standalone executable
+        run: cargo build --locked -p mapcheck-app --release
+
+      # A binary that starts, serves the page and exits cleanly is a much
+      # better signal than one that merely compiles.
+      - name: Smoke test the binary
+        run: |
+          ./target/release/mapcheck --no-browser --port 8731 &
+          server=$!
+          trap 'kill $server 2>/dev/null || true' EXIT
+
+          for _ in $(seq 1 30); do
+            if curl -fsS -o /dev/null http://127.0.0.1:8731/; then
+              break
+            fi
+            sleep 0.5
+          done
+
+          curl -fsS -o /dev/null http://127.0.0.1:8731/
+          curl -fsS -o /dev/null http://127.0.0.1:8731/app.js
+          curl -fsS -o /dev/null http://127.0.0.1:8731/pkg/mapcheck_wasm_bg.wasm
+
+          type=$(curl -fsS -o /dev/null -w '%{content_type}' \
+            http://127.0.0.1:8731/pkg/mapcheck_wasm_bg.wasm)
+          if [ "$type" != "application/wasm" ]; then
+            echo "::error::wasm served as '$type'; browsers require application/wasm"
+            exit 1
+          fi
+
+          echo "Binary serves the app with the wasm embedded."

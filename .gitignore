@@ -7,3 +7,7 @@ node_modules/
 
 # wasm-pack output, rebuilt by scripts/build-wasm.sh
 /pkg/
+
+# Editor swap files
+*.swp
+*.swo

@@ -52,6 +52,46 @@
     {
       "dms": 33.3333,
       "expected": 33.55916666666667
+    },
+    {
+      "dms": 0.29,
+      "expected": 0.4833333333333332
+    },
+    {
+      "dms": 0.57,
+      "expected": 0.9499999999999997
+    },
+    {
+      "dms": 1.13,
+      "expected": 1.2166666666666666
+    },
+    {
+      "dms": 1.19,
+      "expected": 1.3166666666666664
+    },
+    {
+      "dms": 2.23,
+      "expected": 2.3833333333333333
+    },
+    {
+      "dms": 4.43,
+      "expected": 4.716666666666666
+    },
+    {
+      "dms": 8.53,
+      "expected": 8.883333333333331
+    },
+    {
+      "dms": 17.29,
+      "expected": 17.48333333333333
+    },
+    {
+      "dms": 35.57,
+      "expected": 35.95
+    },
+    {
+      "dms": 71.13,
+      "expected": 71.21666666666665
     }
   ],
   "fmtBear": [
@@ -106,6 +146,46 @@
     {
       "dec": 33.3333,
       "expected": "33-20-00"
+    },
+    {
+      "dec": 0.29,
+      "expected": "0-17-24"
+    },
+    {
+      "dec": 0.57,
+      "expected": "0-34-12"
+    },
+    {
+      "dec": 1.13,
+      "expected": "1-07-48"
+    },
+    {
+      "dec": 1.19,
+      "expected": "1-11-24"
+    },
+    {
+      "dec": 2.23,
+      "expected": "2-13-48"
+    },
+    {
+      "dec": 4.43,
+      "expected": "4-25-48"
+    },
+    {
+      "dec": 8.53,
+      "expected": "8-31-48"
+    },
+    {
+      "dec": 17.29,
+      "expected": "17-17-24"
+    },
+    {
+      "dec": 35.57,
+      "expected": "35-34-12"
+    },
+    {
+      "dec": 71.13,
+      "expected": "71-07-48"
     }
   ],
   "fmtBearDMS": [
@@ -160,6 +240,46 @@
     {
       "dec": 33.3333,
       "expected": "33.2000"
+    },
+    {
+      "dec": 0.29,
+      "expected": "0.1724"
+    },
+    {
+      "dec": 0.57,
+      "expected": "0.3412"
+    },
+    {
+      "dec": 1.13,
+      "expected": "1.0748"
+    },
+    {
+      "dec": 1.19,
+      "expected": "1.1124"
+    },
+    {
+      "dec": 2.23,
+      "expected": "2.1348"
+    },
+    {
+      "dec": 4.43,
+      "expected": "4.2548"
+    },
+    {
+      "dec": 8.53,
+      "expected": "8.3148"
+    },
+    {
+      "dec": 17.29,
+      "expected": "17.1724"
+    },
+    {
+      "dec": 35.57,
+      "expected": "35.3412"
+    },
+    {
+      "dec": 71.13,
+      "expected": "71.0748"
     }
   ],
   "parseBearingInput": [
@@ -355,6 +475,78 @@
         "bearing": 1.7583333333333333,
         "hasPrefix": false
       }
+    },
+    {
+      "input": "90-00-00",
+      "expected": {
+        "bearing": 90,
+        "hasPrefix": false
+      }
+    },
+    {
+      "input": "90-00-01",
+      "expected": {
+        "bearing": 90.00027777777778,
+        "hasPrefix": false
+      }
+    },
+    {
+      "input": "91-00-00",
+      "expected": null
+    },
+    {
+      "input": "89-59-59",
+      "expected": {
+        "bearing": 89.99972222222222,
+        "hasPrefix": false
+      }
+    },
+    {
+      "input": "45-59-59",
+      "expected": {
+        "bearing": 45.999722222222225,
+        "hasPrefix": false
+      }
+    },
+    {
+      "input": "45-60-00",
+      "expected": null
+    },
+    {
+      "input": "45-30-59",
+      "expected": {
+        "bearing": 45.51638888888889,
+        "hasPrefix": false
+      }
+    },
+    {
+      "input": "45-30-60",
+      "expected": null
+    },
+    {
+      "input": "0-00-00",
+      "expected": {
+        "bearing": 0,
+        "hasPrefix": false
+      }
+    },
+    {
+      "input": "-1-00-00",
+      "expected": {
+        "bearing": 1,
+        "hasPrefix": false
+      }
+    },
+    {
+      "input": "90.0000",
+      "expected": {
+        "bearing": 90,
+        "hasPrefix": false
+      }
+    },
+    {
+      "input": "90.0001",
+      "expected": null
     }
   ],
   "parseCsvBearing": [

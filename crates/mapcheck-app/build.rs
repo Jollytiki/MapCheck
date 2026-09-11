@@ -8,7 +8,12 @@ use std::path::{Path, PathBuf};
 
 /// (URL path, source file, MIME type, required)
 const ASSETS: &[(&str, &str, &str, bool)] = &[
-    ("/index.html", "index.html", "text/html; charset=utf-8", true),
+    (
+        "/index.html",
+        "index.html",
+        "text/html; charset=utf-8",
+        true,
+    ),
     ("/style.css", "style.css", "text/css; charset=utf-8", true),
     ("/app.js", "app.js", "text/javascript; charset=utf-8", true),
     (

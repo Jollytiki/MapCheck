@@ -59,6 +59,10 @@ const BEARING_INPUTS = [
   "45-30-00", "45 30 00", "45:30:00", "45°30'00\"", "135.0020", "245.1000",
   "312.0000", "400.0000", "500.0000", "1", "12", "123", "1234", "  45.3000  ",
   "", "abc", "91", "45-61-00", "45-30-61", "N45E", "89.5959", "1 45 30 00",
+  // Each side of every range check, in the separated form as well as the
+  // packed one, so the validation bounds are pinned and not just the arithmetic.
+  "90-00-00", "90-00-01", "91-00-00", "89-59-59", "45-59-59", "45-60-00",
+  "45-30-59", "45-30-60", "0-00-00", "-1-00-00", "90.0000", "90.0001",
 ];
 
 const CSV_BEARINGS = [
@@ -69,6 +73,10 @@ const CSV_BEARINGS = [
 const DMS_VALUES = [
   0, 45, 45.5, 35.0020, 89.5959, 0.0001, 12.3456, 90, 1e-9, 44.999999,
   30.596, 60.0000, 33.3333,
+  // Values where (dms - deg) * 100 lands just below a whole minute in binary
+  // floating point. Without BearDec's `+ .0001` nudge these lose a minute, so
+  // they are what makes the parity fixtures sensitive to that line.
+  0.29, 0.57, 1.13, 1.19, 2.23, 4.43, 8.53, 17.29, 35.57, 71.13,
 ];
 
 const CURVE_CASES = [
