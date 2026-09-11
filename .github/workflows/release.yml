@@ -1,0 +1,212 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  macos:
+    name: macOS app
+    runs-on: macos-latest
+    # Whether a Developer ID certificate is configured for this repository.
+    # Resolved at job level because the `secrets` context cannot be read from
+    # a step's `if`, only from `env` and `with`.
+    env:
+      HAS_APPLE_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown,aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      # The runner has no keychain of its own, so the Developer ID certificate
+      # travels as a base64 .p12 and is imported into a throwaway keychain.
+      - name: Import the signing certificate
+        if: env.HAS_APPLE_SIGNING == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          keychain="$RUNNER_TEMP/build.keychain-db"
+          password=$(uuidgen)
+
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+
+          certificate="$RUNNER_TEMP/certificate.p12"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$certificate"
+          security import "$certificate" -k "$keychain" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          rm -f "$certificate"
+
+          # Without this, codesign blocks on a GUI prompt for keychain access.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$password" "$keychain" > /dev/null
+
+          security list-keychain -d user -s "$keychain" login.keychain-db
+
+          # Same profile name build-bundle.sh looks for. --password makes
+          # store-credentials non-interactive.
+          xcrun notarytool store-credentials "mapcheck" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_PASSWORD" > /dev/null
+
+          echo "Certificate imported and notary credentials stored."
+
+      - name: Build, sign and notarize
+        if: env.HAS_APPLE_SIGNING == 'true'
+        env:
+          MAPCHECK_UNIVERSAL: "1"
+        run: ./scripts/build-bundle.sh --notarize
+
+      # An unsigned build is still worth producing, but it must not go out
+      # looking like a signed one.
+      - name: Build unsigned
+        if: env.HAS_APPLE_SIGNING != 'true'
+        env:
+          MAPCHECK_UNIVERSAL: "1"
+        run: |
+          echo "::warning title=Unsigned macOS build::APPLE_CERTIFICATE is not configured, so MapCheck.app is neither signed nor notarized. macOS will refuse it on any machine that did not build it."
+          ./scripts/build-bundle.sh
+
+      # ditto, not zip: it is the one that preserves the bundle's signature
+      # and symlinks so the download is still valid.
+      - name: Package
+        run: |
+          ditto -c -k --keepParent dist/MapCheck.app MapCheck-macOS-universal.zip
+          lipo -archs dist/MapCheck.app/Contents/MacOS/mapcheck
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: MapCheck-macOS-universal.zip
+          if-no-files-found: error
+
+  linux:
+    name: Linux binary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      - name: Build
+        run: ./scripts/build-app.sh
+
+      - name: Package
+        run: tar -czf mapcheck-linux-x86_64.tar.gz -C target/release mapcheck
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: mapcheck-linux-x86_64.tar.gz
+          if-no-files-found: error
+
+  windows:
+    name: Windows executable
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      - name: Build
+        run: ./scripts/build-app.sh
+
+      - name: Package
+        run: |
+          cd target/release
+          7z a ../../mapcheck-windows-x86_64.zip mapcheck.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: mapcheck-windows-x86_64.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish the release
+    needs: [macos, linux, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          ls -la artifacts
+
+          # Quoted delimiter: the notes are written literally, so backticks
+          # and $ need no escaping.
+          cat > notes.md <<'NOTES'
+          ## Downloads
+
+          | Platform | File | Notes |
+          | --- | --- | --- |
+          | macOS | `MapCheck-macOS-universal.zip` | Apple Silicon and Intel. Unzip and drag to Applications. |
+          | Linux | `mapcheck-linux-x86_64.tar.gz` | Extract and run `./mapcheck`. |
+          | Windows | `mapcheck-windows-x86_64.zip` | Extract and run `mapcheck.exe`. |
+
+          Each download contains the whole app — there is nothing else to
+          install. Running it opens MapCheck in your browser.
+
+          On macOS, closing the last tab quits the app. Elsewhere it runs in a
+          terminal until you press Ctrl+C.
+          NOTES
+
+          # Draft, so the notes can be reviewed before anyone sees it —
+          # publishing is a click in the Releases tab.
+          gh release create "$TAG" \
+            --draft \
+            --title "MapCheck $TAG" \
+            --notes-file notes.md \
+            artifacts/*

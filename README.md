@@ -172,6 +172,24 @@ That is deliberate: iCloud Drive re-stamps extended attributes on anything
 under `~/Documents`, and `codesign` rejects a bundle carrying any, so signing
 in place is a race that gets lost.
 
+## Releases
+
+Pushing a `v*` tag builds all three platforms and opens a draft release with
+the downloads attached:
+
+```sh
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+The macOS app is a universal binary, so one download runs on Apple Silicon and
+Intel. It is signed and notarised when the repository has the Apple secrets
+configured (`APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`,
+`APPLE_PASSWORD`, `APPLE_TEAM_ID`) and built unsigned with a warning when it
+does not — a missing certificate should not fail a release, but it should be
+obvious.
+
+The release is a draft, so the notes can be edited before anyone sees it.
+
 ## File formats
 
 **`.MAP`** (legacy) — one value per line: plat name, course count, then four
