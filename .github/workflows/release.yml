@@ -99,7 +99,7 @@ jobs:
           ditto -c -k --keepParent dist/MapCheck.app MapCheck-macOS-universal.zip
           lipo -archs dist/MapCheck.app/Contents/MacOS/mapcheck
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: macos
           path: MapCheck-macOS-universal.zip
@@ -127,7 +127,7 @@ jobs:
       - name: Package
         run: tar -czf mapcheck-linux-x86_64.tar.gz -C target/release mapcheck
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: linux
           path: mapcheck-linux-x86_64.tar.gz
@@ -160,7 +160,7 @@ jobs:
           cd target/release
           7z a ../../mapcheck-windows-x86_64.zip mapcheck.exe
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: windows
           path: mapcheck-windows-x86_64.zip
@@ -173,7 +173,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
