@@ -2287,4 +2287,8 @@ function init() {
     recalculatePlat();
 }
 
+// Read by wasm-bridge.js, which needs the lot designation to call the Rust
+// generateMapFile (a `let` at script scope is not reachable from a module).
+window.getLotDesignation = () => lotDesignation;
+
 window.onload = init;

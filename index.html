@@ -426,5 +426,8 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <script src="app.js"></script>
+    <!-- Swaps the calculation core over to Rust/WASM when it has been built;
+         harmlessly does nothing when it has not. See wasm-bridge.js. -->
+    <script type="module" src="wasm-bridge.js"></script>
 </body>
 </html>

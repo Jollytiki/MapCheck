@@ -1,0 +1,12 @@
+[package]
+name = "mapcheck-core"
+description = "Survey traverse math, closure, and file parsing for MapCheck"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
