@@ -1,0 +1,13 @@
+[package]
+name = "mapcheck-app"
+description = "MapCheck as a single self-contained executable"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "mapcheck"
+path = "src/main.rs"
+
+[dependencies]
+tiny_http = "0.12"

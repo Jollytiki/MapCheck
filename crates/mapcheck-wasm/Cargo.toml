@@ -15,4 +15,13 @@ serde = { workspace = true }
 serde-wasm-bindgen = "0.6"
 
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = ["-Oz"]
+# Current rustc emits these wasm features by default; wasm-opt validates
+# without them unless they are named explicitly.
+wasm-opt = [
+    "-Oz",
+    "--enable-bulk-memory",
+    "--enable-nontrapping-float-to-int",
+    "--enable-sign-ext",
+    "--enable-mutable-globals",
+    "--enable-reference-types",
+]

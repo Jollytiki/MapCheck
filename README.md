@@ -10,12 +10,26 @@ the reference for the file format and the survey math.
 
 ## Running it
 
+As a standalone executable — the whole app is inside the binary, so there is
+nothing to install and nothing to keep beside it:
+
+```sh
+./scripts/build-app.sh      # builds target/release/mapcheck
+./target/release/mapcheck   # serves locally and opens your browser
+```
+
+```
+    -p, --port <PORT>    Port to listen on [default: 8731, or any free port]
+        --no-browser     Start without opening a browser
+```
+
+Or straight from the source files, with no build step at all:
+
 ```sh
 npm run dev      # serves the current directory on http://localhost:3000
 ```
 
-There is no build step and no npm dependencies — `package.json` exists only to
-provide that command.
+`package.json` has no dependencies; it exists only to provide that command.
 
 ## Layout
 
@@ -25,6 +39,7 @@ provide that command.
 | `app.js` | UI logic: canvas plotting, tables, the plat library, event wiring |
 | `crates/mapcheck-core` | The survey math and both file formats, in Rust |
 | `crates/mapcheck-wasm` | `wasm-bindgen` shim exposing the core to the browser |
+| `crates/mapcheck-app` | The standalone executable, with the app embedded in it |
 | `wasm-bridge.js` | Points the app at the Rust core when it has been built |
 | `MAPCHECK.BAS` | The original 1992 program |
 
@@ -83,6 +98,20 @@ MapCheck: calculations running on the Rust/WASM core
 Until `./pkg` exists the bridge does nothing and the app uses the JavaScript
 implementations in `app.js`, which are still there and still work. Both paths
 produce the same numbers — that is what `tests/parity.rs` is for.
+
+## The standalone executable
+
+`crates/mapcheck-app` embeds `index.html`, `style.css`, `app.js`,
+`wasm-bridge.js` and the compiled wasm into a single binary (~800 KB), serves
+them on a loopback port, and opens a browser. It binds to `127.0.0.1` only.
+
+```sh
+./scripts/build-app.sh
+```
+
+That builds the wasm first if `./pkg` is missing. Building without the wasm
+also works — the binary is smaller, says so on startup, and runs on the
+JavaScript fallback.
 
 ## File formats
 
