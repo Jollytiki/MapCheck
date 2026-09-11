@@ -137,10 +137,40 @@ That behaviour is tied to the bundle, not forced on everyone — at a terminal
 it stays running and Ctrl+C is the way out. `--quit-when-idle` and
 `--stay-running` override the default either way.
 
-The bundle is ad-hoc signed, which is enough to run on the machine that built
-it. It is not signed with a Developer ID and is not notarised, so another Mac
-will quarantine it on download; the owner can clear that with
-`xattr -d com.apple.quarantine MapCheck.app`.
+### Signing
+
+The script signs with a Developer ID Application certificate when the keychain
+has one, and ad-hoc otherwise. Ad-hoc is enough to run on the machine that
+built it; any other Mac refuses it.
+
+A Developer ID signature alone is not enough either — Apple also has to
+notarise the app. Store the credentials once:
+
+```sh
+xcrun notarytool store-credentials "mapcheck"     --apple-id <your-apple-id> --team-id <your-team-id>
+```
+
+It asks for an app-specific password, generated at appleid.apple.com; that is
+the only secret involved, and it goes straight into the keychain. Your Apple ID
+password is never used outside Apple's own sign-in page. Then:
+
+```sh
+./scripts/build-bundle.sh --notarize
+```
+
+That submits the app to Apple, waits for the result, and staples the ticket
+into the bundle so it opens even offline. `spctl --assess --type execute
+dist/MapCheck.app` should then report `accepted`; until notarisation it says
+`rejected: Unnotarized Developer ID`, which is the expected state for a
+correctly signed but unsubmitted app.
+
+Overrides: `MAPCHECK_SIGN_IDENTITY` picks a different certificate (or `-` to
+force ad-hoc), and `MAPCHECK_NOTARY_PROFILE` names a different stored profile.
+
+The bundle is built in a temporary directory and moved into `dist/` at the end.
+That is deliberate: iCloud Drive re-stamps extended attributes on anything
+under `~/Documents`, and `codesign` rejects a bundle carrying any, so signing
+in place is a race that gets lost.
 
 ## File formats
 
