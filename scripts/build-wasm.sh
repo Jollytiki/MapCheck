@@ -25,14 +25,16 @@ fi
 has_wasm_target() {
     local libdir
     libdir=$(rustc --print target-libdir --target wasm32-unknown-unknown 2>/dev/null) || return 1
-    [ -d "$libdir" ]
+    # On Windows rustc reports a backslash path, which bash does not treat as
+    # separators, so the test would fail on a target that is actually present.
+    [ -d "${libdir//\\//}" ]
 }
 
 # A Homebrew rustc has no wasm32 target and cannot be given one, so prefer a
 # rustup toolchain when both are installed.
 if ! has_wasm_target && command -v rustup >/dev/null 2>&1; then
     if toolchain=$(rustup which rustc 2>/dev/null); then
-        PATH="$(dirname "$toolchain"):$PATH"
+        PATH="$(dirname "${toolchain//\\//}"):$PATH"
     fi
 fi
 

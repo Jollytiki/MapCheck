@@ -122,6 +122,60 @@ jobs:
 
           echo "Binary serves the app with the wasm embedded."
 
+  windows:
+    name: Windows executable
+    runs-on: windows-latest
+    # Git Bash ships on the Windows runners, so the smoke test is the same
+    # script as the Linux job rather than a PowerShell translation of it.
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      - name: Build the WebAssembly core
+        run: ./scripts/build-wasm.sh
+
+      - name: Build the executable
+        run: cargo build --locked -p mapcheck-app --release
+
+      # The only platform-specific code in the binary is how it opens a
+      # browser, so what needs proving is that it builds, listens, and serves
+      # the embedded app on Windows too.
+      - name: Smoke test the executable
+        run: |
+          ./target/release/mapcheck.exe --no-browser --stay-running --port 8731 &
+          server=$!
+          trap 'kill $server 2>/dev/null || true' EXIT
+
+          for _ in $(seq 1 30); do
+            curl -fsS -o /dev/null http://127.0.0.1:8731/ && break
+            sleep 0.5
+          done
+
+          curl -fsS -o /dev/null http://127.0.0.1:8731/
+          curl -fsS -o /dev/null http://127.0.0.1:8731/app.js
+          curl -fsS -o /dev/null http://127.0.0.1:8731/pkg/mapcheck_wasm_bg.wasm
+
+          type=$(curl -fsS -o /dev/null -w '%{content_type}' \
+            http://127.0.0.1:8731/pkg/mapcheck_wasm_bg.wasm)
+          if [ "$type" != "application/wasm" ]; then
+            echo "::error::wasm served as '$type'; browsers require application/wasm"
+            exit 1
+          fi
+
+          echo "Windows executable serves the app with the wasm embedded."
+
   bundle:
     name: macOS app bundle
     runs-on: macos-latest
