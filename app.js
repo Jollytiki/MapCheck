@@ -9,6 +9,7 @@ let solvedCurve = null; // Stores solved curve parameters: R, L, Delta, C
 let courses = [];
 let library = [];
 let editingIndex = null;
+let insertIndex = null; // Position a new course will be spliced into, or null to append
 let lastErrorMsg = null;
 
 // Viewport and Interaction State for Canvas
@@ -64,6 +65,9 @@ const distanceInput = document.getElementById("distanceInput");
 const addCourseForm = document.getElementById("addCourseForm");
 const btnAddCourse = document.getElementById("btnAddCourse");
 const btnCancelEdit = document.getElementById("btnCancelEdit");
+const editInsertActions = document.getElementById("editInsertActions");
+const btnInsertBefore = document.getElementById("btnInsertBefore");
+const btnInsertAfter = document.getElementById("btnInsertAfter");
 
 const courseCountBadge = document.getElementById("courseCountBadge");
 const courseTableBody = document.getElementById("courseTableBody");
@@ -811,7 +815,16 @@ function renderTable() {
         tableEmptyState.style.display = "none";
     }
     
+    const insertMarkerRow = () => {
+        const tr = document.createElement("tr");
+        tr.className = "insert-marker-row";
+        tr.innerHTML = `<td colspan="8">New course will be inserted here as #${insertIndex + 1}</td>`;
+        courseTableBody.appendChild(tr);
+    };
+    
     courses.forEach((c, index) => {
+        if (insertIndex === index) insertMarkerRow();
+        
         const tr = document.createElement("tr");
         tr.dataset.index = index;
         if (c.isInvalid) {
@@ -892,6 +905,8 @@ function renderTable() {
         
         courseTableBody.appendChild(tr);
     });
+    
+    if (insertIndex !== null && insertIndex >= courses.length) insertMarkerRow();
 }
 
 function renderCoordinateTable() {
@@ -928,8 +943,10 @@ function renderCoordinateTable() {
 
 function cancelEdit() {
     editingIndex = null;
+    insertIndex = null;
     btnAddCourse.textContent = "Add Course";
     btnCancelEdit.style.display = "none";
+    editInsertActions.style.display = "none";
     
     // Clear form fields
     bearingInput.value = "";
@@ -937,6 +954,24 @@ function cancelEdit() {
     btnResetCurveParams.click();
     bearingInput.focus();
     recalculatePlat(); // Redraws table to clear highlights
+}
+
+// Switch the form from editing a course to inserting a new one at `position`
+function startInsert(position) {
+    editingIndex = null;
+    insertIndex = Math.max(0, Math.min(position, courses.length));
+    
+    btnAddCourse.textContent = `Insert Course as #${insertIndex + 1}`;
+    btnCancelEdit.style.display = "block";
+    editInsertActions.style.display = "none";
+    
+    // Clear form fields so the user starts fresh
+    bearingInput.value = "";
+    distanceInput.value = "";
+    btnResetCurveParams.click();
+    bearingInput.focus();
+    recalculatePlat(); // Redraws table with the insert marker
+    showToast(`Inserting new course as #${insertIndex + 1}`, "info");
 }
 
 // Global actions for inline items (exposed to window)
@@ -950,6 +985,12 @@ window.deleteCourse = function(index) {
         editingIndex--;
     }
     
+    // Keep the insert position pointing at the same neighbours
+    if (insertIndex !== null && index < insertIndex) {
+        insertIndex--;
+        btnAddCourse.textContent = `Insert Course as #${insertIndex + 1}`;
+    }
+    
     recalculatePlat();
     showToast("Course deleted");
 };
@@ -957,6 +998,7 @@ window.deleteCourse = function(index) {
 window.editCourse = function(index) {
     const oldEditingIndex = editingIndex;
     editingIndex = index;
+    insertIndex = null;
     
     // Redraw table to shift highlights
     if (oldEditingIndex !== null) {
@@ -970,6 +1012,7 @@ window.editCourse = function(index) {
     // Update button states
     btnAddCourse.textContent = "Update Course";
     btnCancelEdit.style.display = "block";
+    editInsertActions.style.display = "flex";
     
     if (c.isInvalid) {
         const pd = c.partialData || {};
@@ -1942,6 +1985,15 @@ function initEvents() {
             editingIndex = null;
             btnAddCourse.textContent = "Add Course";
             btnCancelEdit.style.display = "none";
+            editInsertActions.style.display = "none";
+        } else if (insertIndex !== null) {
+            const position = insertIndex;
+            courses.splice(position, 0, newCourse);
+            insertIndex = null;
+            btnAddCourse.textContent = "Add Course";
+            btnCancelEdit.style.display = "none";
+            recalculatePlat();
+            showToast(`Course inserted as #${position + 1}`);
         } else {
             courses.push(newCourse);
             showToast("Course added successfully");
@@ -1962,6 +2014,14 @@ function initEvents() {
     if (btnCancelEdit) {
         btnCancelEdit.addEventListener("click", cancelEdit);
     }
+    
+    // Insert a new course before/after the course being edited
+    btnInsertBefore.addEventListener("click", () => {
+        if (editingIndex !== null) startInsert(editingIndex);
+    });
+    btnInsertAfter.addEventListener("click", () => {
+        if (editingIndex !== null) startInsert(editingIndex + 1);
+    });
 
     // Clear plat
     btnClearPlat.addEventListener("click", () => {
@@ -1970,7 +2030,7 @@ function initEvents() {
             courses = [];
             startNorthingInput.value = "";
             startEastingInput.value = "";
-            if (editingIndex !== null) {
+            if (editingIndex !== null || insertIndex !== null) {
                 cancelEdit();
             }
             recalculatePlat();

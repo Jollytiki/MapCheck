@@ -532,6 +532,17 @@ tr:hover td {
     background-color: rgba(244, 63, 94, 0.15);
 }
 
+/* Insert-position marker row shown while inserting a course */
+.insert-marker-row td {
+    padding: 0.35rem 0.75rem;
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--accent-emerald);
+    background-color: rgba(16, 185, 129, 0.08);
+    border-top: 2px dashed var(--accent-emerald);
+    border-bottom: 2px dashed var(--accent-emerald);
+}
+
 /* Empty State */
 .empty-state {
     display: flex;
