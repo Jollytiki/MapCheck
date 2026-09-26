@@ -185,6 +185,13 @@ jobs:
         run: |
           ls -la artifacts
 
+          # Re-pushing a tag that already has a release would otherwise add a
+          # second, draft release beside it.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; not creating another."
+            exit 0
+          fi
+
           # Quoted delimiter: the notes are written literally, so backticks
           # and $ need no escaping.
           cat > notes.md <<'NOTES'
