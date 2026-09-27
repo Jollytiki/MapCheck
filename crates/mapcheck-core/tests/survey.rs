@@ -428,12 +428,19 @@ fn csv_curve_accepts_cb_prefix_and_bare_r_turn() {
                5, C, R150, CH100, R\n";
     let f = parse_csv_text(txt, "t.txt");
     assert_eq!(f.error_count, 0, "{:?}", f.courses);
-    let turns: Vec<Turn> = f.courses.iter().filter_map(|c| match c {
-        Course::Curve(cc) => Some(cc.turn),
-        _ => None,
-    }).collect();
+    let turns: Vec<Turn> = f
+        .courses
+        .iter()
+        .filter_map(|c| match c {
+            Course::Curve(cc) => Some(cc.turn),
+            _ => None,
+        })
+        .collect();
     assert_eq!(turns, vec![Turn::L, Turn::L, Turn::R, Turn::R]);
     if let Course::Curve(cc) = &f.courses[4] {
-        assert!((cc.radius - 150.0).abs() < 1e-9, "trailing R clobbered radius");
+        assert!(
+            (cc.radius - 150.0).abs() < 1e-9,
+            "trailing R clobbered radius"
+        );
     }
 }
