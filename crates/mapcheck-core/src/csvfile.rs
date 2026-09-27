@@ -49,7 +49,13 @@ pub fn parse_csv_text(content: &str, file_name: &str) -> ParsedFile {
         let (is_curve, param_start, initial_bearing) = if parts[1].eq_ignore_ascii_case("C") {
             (true, 2usize, None)
         } else if parts[2].eq_ignore_ascii_case("C") {
-            (true, 3usize, Some(parts[1].clone()))
+            // Field 2 may carry the documented `CB` prefix ("CBN 45-00-00 E").
+            let b = parts[1].trim();
+            let b = match b.get(..2) {
+                Some(tag) if tag.eq_ignore_ascii_case("CB") => b[2..].trim(),
+                _ => b,
+            };
+            (true, 3usize, Some(b.to_string()))
         } else {
             (false, 0usize, None)
         };
@@ -189,7 +195,10 @@ fn scan_curve_params(
                 p.turn = Some(if tag == "LA" { Turn::L } else { Turn::R });
             }
             _ => {
-                if let Some(rest) = param.strip_prefix('R') {
+                if param == "R" {
+                    // Bare `R` is a turn direction, not an empty radius.
+                    p.turn = Some(Turn::R);
+                } else if let Some(rest) = param.strip_prefix('R') {
                     p.radius = Some(parse_float(rest));
                 } else if let Some(rest) = param.strip_prefix('D') {
                     p.delta_angle = Some(bear_dec(parse_float(rest)));

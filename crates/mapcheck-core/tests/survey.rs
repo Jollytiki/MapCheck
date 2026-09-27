@@ -414,3 +414,26 @@ fn an_invalid_course_cannot_be_exported() {
     let err = generate_map_file("Broken", "", &courses).unwrap_err();
     assert!(err.0.contains("course #5"), "got {}", err.0);
 }
+
+// Regression: chord bearing with the documented `CB` prefix, and a bare `R`
+// turn direction, both used to be rejected on import.
+#[test]
+fn csv_curve_accepts_cb_prefix_and_bare_r_turn() {
+    use mapcheck_core::csvfile::parse_csv_text;
+    use mapcheck_core::types::{Course, Turn};
+    let txt = "1, N 00-00-00 E, 100\n\
+               2, CBN 45-00-00 E, C, R500, LA157.08\n\
+               3, cb S 10-00-00 E, C, L, R150, D38.5633\n\
+               4, C, R, R150, CH100\n\
+               5, C, R150, CH100, R\n";
+    let f = parse_csv_text(txt, "t.txt");
+    assert_eq!(f.error_count, 0, "{:?}", f.courses);
+    let turns: Vec<Turn> = f.courses.iter().filter_map(|c| match c {
+        Course::Curve(cc) => Some(cc.turn),
+        _ => None,
+    }).collect();
+    assert_eq!(turns, vec![Turn::L, Turn::L, Turn::R, Turn::R]);
+    if let Course::Curve(cc) = &f.courses[4] {
+        assert!((cc.radius - 150.0).abs() < 1e-9, "trailing R clobbered radius");
+    }
+}

@@ -1294,7 +1294,8 @@ function parseCsvTextFile(content, fileName) {
             paramStartIndex = 2;
         } else if (parts[2].toUpperCase() === 'C') {
             isCurve = true;
-            bearingStr = parts[1];
+            // Field 2 may carry the documented `CB` prefix ("CBN 45-00-00 E").
+            bearingStr = parts[1].trim().replace(/^CB\s*/i, '');
             paramStartIndex = 3;
         }
         
@@ -1340,6 +1341,8 @@ function parseCsvTextFile(content, fileName) {
                             arcLength = parseFloat(valStr);
                         }
                         turn = 'R';
+                    } else if (param === 'L' || param === 'R') {
+                        turn = param; // bare turn direction, not an empty radius
                     } else if (param.startsWith("R")) {
                         radius = parseFloat(param.substring(1));
                     } else if (param.startsWith("D")) {
@@ -1462,7 +1465,7 @@ function parseCsvTextFile(content, fileName) {
                 
                 let rParam = parts.slice(paramStartIndex).find(p => {
                     const u = p.trim().toUpperCase();
-                    return u.startsWith("R") && !u.startsWith("RA");
+                    return u.startsWith("R") && !u.startsWith("RA") && u !== "R";
                 });
                 if (rParam) radius = parseFloat(rParam.trim().substring(1));
                 

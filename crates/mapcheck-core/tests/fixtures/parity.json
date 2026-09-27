@@ -1818,7 +1818,7 @@
           {
             "type": "invalid",
             "isInvalid": true,
-            "errorMsg": "Course #2 (on line 2) (Curve): Not enough parameters to compute curve. Provided: Arc Length (LA/RA). Please provide at least one of the following to resolve the curve geometry: Chord Distance (CH/CD/CL), Delta Angle (D).",
+            "errorMsg": "Course #2 (on line 2) (Curve): Not enough parameters to compute curve. Provided: Arc Length (LA/RA). Please provide at least one of the following to resolve the curve geometry: Radius (R), Chord Distance (CH/CD/CL), Delta Angle (D).",
             "partialType": "curve",
             "partialData": {
               "quad": null,
