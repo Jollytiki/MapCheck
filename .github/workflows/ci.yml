@@ -7,6 +7,10 @@ on:
   # Lets you re-run the checks by hand from the Actions tab.
   workflow_dispatch:
 
+# Checks only read the repository; nothing here needs to write to it.
+permissions:
+  contents: read
+
 # A second push to the same branch cancels the first run rather than queueing.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
