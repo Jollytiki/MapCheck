@@ -1073,6 +1073,17 @@ function initLibrary() {
     }
 }
 
+// Writes can throw when storage is full or blocked; report instead of failing silently.
+function persistLibrary() {
+    try {
+        localStorage.setItem("mapcheck_library", JSON.stringify(library));
+        return true;
+    } catch (e) {
+        console.error("Failed to save local storage library", e);
+        return false;
+    }
+}
+
 function saveToLibrary() {
     if (courses.length === 0) {
         showToast("No courses to save", "error");
@@ -1093,16 +1104,21 @@ function saveToLibrary() {
     };
     
     // Replace if same name, or add new
+    const previousLibrary = library;
+    library = library.slice();
     const existingIndex = library.findIndex(l => l.name.toLowerCase() === name.toLowerCase());
     if (existingIndex > -1) {
         library[existingIndex] = newItem;
-        showToast(`Updated plat: "${name}"`);
     } else {
         library.push(newItem);
-        showToast(`Saved new plat: "${name}"`);
     }
-    
-    localStorage.setItem("mapcheck_library", JSON.stringify(library));
+
+    if (!persistLibrary()) {
+        library = previousLibrary;
+        showToast("Could not save to library (browser storage is full or blocked)", "error");
+        return;
+    }
+    showToast(existingIndex > -1 ? `Updated plat: "${name}"` : `Saved new plat: "${name}"`);
 }
 
 function loadLibraryItem(id) {
@@ -1139,8 +1155,13 @@ function deleteLibraryItem(id, event) {
     if (!item) return;
     
     if (confirm(`Are you sure you want to delete "${item.name}" from your library?`)) {
+        const previousLibrary = library;
         library = library.filter(l => l.id !== id);
-        localStorage.setItem("mapcheck_library", JSON.stringify(library));
+        if (!persistLibrary()) {
+            library = previousLibrary;
+            showToast("Could not update library (browser storage is blocked)", "error");
+            return;
+        }
         renderLibraryList();
         showToast("Plat deleted from library");
     }
