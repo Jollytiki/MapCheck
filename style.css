@@ -715,6 +715,10 @@ tr:hover td {
     border-left: 4px solid var(--accent-rose);
 }
 
+.toast.warning {
+    border-left: 4px solid var(--accent-amber);
+}
+
 @keyframes slideUp {
     from {
         opacity: 0;

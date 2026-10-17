@@ -1047,7 +1047,8 @@
             "rawBearing": "45.0000"
           }
         ],
-        "errorCount": 0
+        "errorCount": 0,
+        "warnings": []
       },
       "error": null
     },
@@ -1066,7 +1067,8 @@
             "rawBearing": "30.0000"
           }
         ],
-        "errorCount": 0
+        "errorCount": 0,
+        "warnings": []
       },
       "error": null
     },
@@ -1097,7 +1099,8 @@
             "rawBearing": "10.0000"
           }
         ],
-        "errorCount": 0
+        "errorCount": 0,
+        "warnings": []
       },
       "error": null
     },
@@ -1159,7 +1162,8 @@
             }
           }
         ],
-        "errorCount": 3
+        "errorCount": 3,
+        "warnings": []
       },
       "error": null
     },
@@ -1187,7 +1191,8 @@
             }
           }
         ],
-        "errorCount": 1
+        "errorCount": 1,
+        "warnings": []
       },
       "error": null
     }
@@ -1241,7 +1246,8 @@
             }
           }
         ],
-        "errorCount": 1
+        "errorCount": 1,
+        "warnings": []
       },
       "error": null
     },
@@ -1260,7 +1266,8 @@
             "rawBearing": "145.0000"
           }
         ],
-        "errorCount": 0
+        "errorCount": 0,
+        "warnings": []
       },
       "error": null
     },
@@ -1291,7 +1298,8 @@
             "rawBearing": "33.4500"
           }
         ],
-        "errorCount": 0
+        "errorCount": 0,
+        "warnings": []
       },
       "error": null
     },
@@ -1322,7 +1330,8 @@
             "rawBearing": "130.0000"
           }
         ],
-        "errorCount": 0
+        "errorCount": 0,
+        "warnings": []
       },
       "error": null
     },
@@ -1350,7 +1359,8 @@
             }
           }
         ],
-        "errorCount": 1
+        "errorCount": 1,
+        "warnings": []
       },
       "error": null
     },
@@ -1381,7 +1391,10 @@
             "rawBearing": "56.1500"
           }
         ],
-        "errorCount": 0
+        "errorCount": 0,
+        "warnings": [
+          "Course #2 (on line 2) (Curve): Chord 77.85 does not agree with the radius and arc length, which give 78.04. The chord was ignored."
+        ]
       },
       "error": null
     },
@@ -1412,7 +1425,10 @@
             "rawBearing": "56.1500"
           }
         ],
-        "errorCount": 0
+        "errorCount": 0,
+        "warnings": [
+          "Course #2 (on line 2) (Curve): Chord 77.85 does not agree with the radius and arc length, which give 78.04. The chord was ignored."
+        ]
       },
       "error": null
     },
@@ -1443,7 +1459,10 @@
             "rawBearing": "130.0000"
           }
         ],
-        "errorCount": 0
+        "errorCount": 0,
+        "warnings": [
+          "Course #2 (on line 2) (Curve): Chord 77.85 does not agree with the radius and arc length, which give 78.04. The chord was ignored."
+        ]
       },
       "error": null
     },
@@ -1474,7 +1493,8 @@
             "rawBearing": "130.0000"
           }
         ],
-        "errorCount": 0
+        "errorCount": 0,
+        "warnings": []
       },
       "error": null
     },
@@ -1505,7 +1525,8 @@
             "rawBearing": "56.1500"
           }
         ],
-        "errorCount": 0
+        "errorCount": 0,
+        "warnings": []
       },
       "error": null
     },
@@ -1541,7 +1562,8 @@
             }
           }
         ],
-        "errorCount": 1
+        "errorCount": 1,
+        "warnings": []
       },
       "error": null
     },
@@ -1577,7 +1599,8 @@
             }
           }
         ],
-        "errorCount": 1
+        "errorCount": 1,
+        "warnings": []
       },
       "error": null
     },
@@ -1595,7 +1618,8 @@
             "partialData": {}
           }
         ],
-        "errorCount": 1
+        "errorCount": 1,
+        "warnings": []
       },
       "error": null
     },
@@ -1623,7 +1647,8 @@
             }
           }
         ],
-        "errorCount": 1
+        "errorCount": 1,
+        "warnings": []
       },
       "error": null
     },
@@ -1651,7 +1676,8 @@
             }
           }
         ],
-        "errorCount": 1
+        "errorCount": 1,
+        "warnings": []
       },
       "error": null
     },
@@ -1679,7 +1705,8 @@
             }
           }
         ],
-        "errorCount": 1
+        "errorCount": 1,
+        "warnings": []
       },
       "error": null
     },
@@ -1707,7 +1734,8 @@
             }
           }
         ],
-        "errorCount": 1
+        "errorCount": 1,
+        "warnings": []
       },
       "error": null
     },
@@ -1752,7 +1780,8 @@
             }
           }
         ],
-        "errorCount": 2
+        "errorCount": 2,
+        "warnings": []
       },
       "error": null
     },
@@ -1797,7 +1826,8 @@
             }
           }
         ],
-        "errorCount": 2
+        "errorCount": 2,
+        "warnings": []
       },
       "error": null
     },
@@ -1833,7 +1863,8 @@
             }
           }
         ],
-        "errorCount": 1
+        "errorCount": 1,
+        "warnings": []
       },
       "error": null
     },
@@ -1864,7 +1895,156 @@
             "rawBearing": "33.4500"
           }
         ],
-        "errorCount": 0
+        "errorCount": 0,
+        "warnings": []
+      },
+      "error": null
+    },
+    {
+      "content": "1, 145.0000, 100\n2, C, R, R150, CH100, RA100\n",
+      "expected": {
+        "name": "courses",
+        "lot": "",
+        "courses": [
+          {
+            "type": "line",
+            "quad": "N",
+            "bearing": 45,
+            "hemi": "E",
+            "distance": 100,
+            "rawBearing": "145.0000"
+          },
+          {
+            "type": "curve",
+            "quad": "N",
+            "bearing": 64.09859317102746,
+            "hemi": "E",
+            "distance": 100,
+            "chordLength": 98.15840903884566,
+            "radius": 150,
+            "deltaAngle": 38.197186342054884,
+            "turn": "R",
+            "rawBearing": "64.0555"
+          }
+        ],
+        "errorCount": 0,
+        "warnings": [
+          "Course #2 (on line 2) (Curve): Chord 100 does not agree with the radius and arc length, which give 98.16. The chord was ignored."
+        ]
+      },
+      "error": null
+    },
+    {
+      "content": "1, 145.0000, 100\n2, C, L, R200, CH77.85, D30.0000\n",
+      "expected": {
+        "name": "courses",
+        "lot": "",
+        "courses": [
+          {
+            "type": "line",
+            "quad": "N",
+            "bearing": 45,
+            "hemi": "E",
+            "distance": 100,
+            "rawBearing": "145.0000"
+          },
+          {
+            "type": "curve",
+            "quad": "N",
+            "bearing": 30,
+            "hemi": "E",
+            "distance": 104.71975511965977,
+            "chordLength": 103.5276180410083,
+            "radius": 200,
+            "deltaAngle": 30,
+            "turn": "L",
+            "rawBearing": "30.0000"
+          }
+        ],
+        "errorCount": 0,
+        "warnings": [
+          "Course #2 (on line 2) (Curve): Chord 77.85 does not agree with the radius and delta, which give 103.53. The chord was ignored."
+        ]
+      },
+      "error": null
+    },
+    {
+      "content": "1, 145.0000, 100\n2, C, R200, RA78.54, CL78.04\n",
+      "expected": {
+        "name": "courses",
+        "lot": "",
+        "courses": [
+          {
+            "type": "line",
+            "quad": "N",
+            "bearing": 45,
+            "hemi": "E",
+            "distance": 100,
+            "rawBearing": "145.0000"
+          },
+          {
+            "type": "curve",
+            "quad": "N",
+            "bearing": 56.25002630739374,
+            "hemi": "E",
+            "distance": 78.54,
+            "chordLength": 78.03630893771796,
+            "radius": 200,
+            "deltaAngle": 22.500052614787432,
+            "turn": "R",
+            "rawBearing": "56.1500"
+          }
+        ],
+        "errorCount": 0,
+        "warnings": []
+      },
+      "error": null
+    },
+    {
+      "content": "1, 145.0000, 100\n2, C, LA100, CL90, D60.0000\n3, C, R100, LA50, CL60, D40.0000\n",
+      "expected": {
+        "name": "courses",
+        "lot": "",
+        "courses": [
+          {
+            "type": "line",
+            "quad": "N",
+            "bearing": 45,
+            "hemi": "E",
+            "distance": 100,
+            "rawBearing": "145.0000"
+          },
+          {
+            "type": "curve",
+            "quad": "N",
+            "bearing": 15,
+            "hemi": "E",
+            "distance": 100,
+            "chordLength": 95.4929658551372,
+            "radius": 95.49296585513721,
+            "deltaAngle": 60,
+            "turn": "L",
+            "rawBearing": "15.0000"
+          },
+          {
+            "type": "curve",
+            "quad": "N",
+            "bearing": 29.323944878270595,
+            "hemi": "W",
+            "distance": 50,
+            "chordLength": 49.48079185090459,
+            "radius": 100,
+            "deltaAngle": 28.64788975654116,
+            "turn": "L",
+            "rawBearing": "29.1926"
+          }
+        ],
+        "errorCount": 0,
+        "warnings": [
+          "Course #2 (on line 2) (Curve): Chord 90 does not agree with the arc length and delta, which give 95.49. The chord was ignored.",
+          "Course #3 (on line 3) (Curve): Chord 60 does not agree with the radius and arc length, which give 49.48. The chord was ignored.",
+          "Course #3 (on line 3) (Curve): Delta 40.0000 does not agree with the radius and arc length, which give 28.3852. The delta was ignored."
+        ]
       },
       "error": null
     }
@@ -1894,7 +2074,8 @@
             "rawBearing": "45.0000"
           }
         ],
-        "errorCount": 0
+        "errorCount": 0,
+        "warnings": []
       },
       "error": null
     },
@@ -1922,7 +2103,8 @@
             "rawBearing": "245.0000"
           }
         ],
-        "errorCount": 0
+        "errorCount": 0,
+        "warnings": []
       },
       "error": null
     },
@@ -1941,7 +2123,8 @@
             "partialData": {}
           }
         ],
-        "errorCount": 1
+        "errorCount": 1,
+        "warnings": []
       },
       "error": null
     }

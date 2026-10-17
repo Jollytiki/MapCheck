@@ -444,3 +444,19 @@ fn csv_curve_accepts_cb_prefix_and_bare_r_turn() {
         );
     }
 }
+
+// A curve value beyond the two the solver uses is checked against the solved
+// curve: a disagreement loads the course but warns; agreement is silent.
+#[test]
+fn csv_curve_warns_on_extra_values_that_disagree() {
+    use mapcheck_core::csvfile::parse_csv_text;
+    let txt = "1, N 00-00-00 E, 100\n\
+               2, C, R, R150, CH100, RA100\n\
+               3, C, R200, RA78.54, CL78.04\n";
+    let f = parse_csv_text(txt, "t.txt");
+    assert_eq!(f.error_count, 0, "{:?}", f.courses);
+    assert_eq!(
+        f.warnings,
+        vec!["Course #2 (on line 2) (Curve): Chord 100 does not agree with the radius and arc length, which give 98.16. The chord was ignored.".to_string()]
+    );
+}

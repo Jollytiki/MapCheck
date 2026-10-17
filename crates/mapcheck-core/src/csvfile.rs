@@ -7,7 +7,7 @@
 //! lines and `#` / `//` comments are ignored.
 
 use crate::bearing::{bear_dec, fmt_bear_dms, parse_csv_bearing};
-use crate::curve::solve_curve;
+use crate::curve::{solve_curve, CurveSolution};
 use crate::jsnum::parse_float;
 use crate::mapfile::{significant_lines, ParsedFile};
 use crate::traverse::course_end_tangent;
@@ -21,6 +21,7 @@ pub fn parse_csv_text(content: &str, file_name: &str) -> ParsedFile {
     let lines = significant_lines(content);
     let mut courses: Vec<Course> = Vec::new();
     let mut error_count = 0;
+    let mut warnings: Vec<String> = Vec::new();
 
     for (i, line) in lines.iter().enumerate() {
         if line.starts_with('#') || line.starts_with("//") {
@@ -68,6 +69,7 @@ pub fn parse_csv_text(content: &str, file_name: &str) -> ParsedFile {
                 param_start,
                 initial_bearing.clone(),
                 courses.last(),
+                &mut warnings,
             )
         } else {
             parse_line_course(&course_num, line_no, &parts)
@@ -100,6 +102,7 @@ pub fn parse_csv_text(content: &str, file_name: &str) -> ParsedFile {
         lot: String::new(),
         courses,
         error_count,
+        warnings,
     }
 }
 
@@ -149,6 +152,10 @@ struct CurveParams {
     delta_angle: Option<f64>,
     turn: Option<Turn>,
     bearing_str: Option<String>,
+    // Values as written in the file, for the mismatch warning.
+    raw_arc: Option<String>,
+    raw_chord: Option<String>,
+    raw_delta: Option<String>,
 }
 
 /// Scan the prefixed curve parameters. Order matters: `LA`/`RA` are checked
@@ -166,6 +173,9 @@ fn scan_curve_params(
         delta_angle: None,
         turn: None,
         bearing_str: initial_bearing,
+        raw_arc: None,
+        raw_chord: None,
+        raw_delta: None,
     };
 
     for raw in parts.iter().skip(param_start) {
@@ -183,14 +193,21 @@ fn scan_curve_params(
 
         match tag {
             "CB" => p.bearing_str = Some(raw_value.to_string()),
-            "CL" | "CD" => p.chord_length = Some(parse_float(value)),
+            "CL" | "CD" => {
+                p.chord_length = Some(parse_float(value));
+                p.raw_chord = Some(value.to_string());
+            }
             // Ambiguous: chord bearing when a length is given elsewhere on the
             // line, chord length otherwise.
             "CH" if has_cl => p.bearing_str = Some(raw_value.to_string()),
-            "CH" => p.chord_length = Some(parse_float(value)),
+            "CH" => {
+                p.chord_length = Some(parse_float(value));
+                p.raw_chord = Some(value.to_string());
+            }
             "LA" | "RA" => {
                 if !value.is_empty() {
                     p.arc_length = Some(parse_float(value));
+                    p.raw_arc = Some(value.to_string());
                 }
                 p.turn = Some(if tag == "LA" { Turn::L } else { Turn::R });
             }
@@ -202,6 +219,7 @@ fn scan_curve_params(
                     p.radius = Some(parse_float(rest));
                 } else if let Some(rest) = param.strip_prefix('D') {
                     p.delta_angle = Some(bear_dec(parse_float(rest)));
+                    p.raw_delta = Some(rest.to_string());
                 } else if param == "L" {
                     p.turn = Some(Turn::L);
                 }
@@ -212,6 +230,87 @@ fn scan_curve_params(
     p
 }
 
+/// `solve_curve` uses the first pair it finds of radius, arc, delta and chord.
+/// Any further value a file gives should agree with that solution, or it was
+/// probably mistyped, so report it rather than drop it silently. Lengths must
+/// agree within 0.05'; delta within 1" or 0.05' along the arc.
+fn curve_mismatches(p: &CurveParams, solved: &CurveSolution) -> Vec<String> {
+    // The same tests solve_curve makes: present is enough, except that a zero
+    // delta counts as absent.
+    let has_delta = p.delta_angle.is_some_and(|d| d != 0.0 && !d.is_nan());
+    let used = if p.radius.is_some() {
+        if p.arc_length.is_some() {
+            "RL"
+        } else if has_delta {
+            "RD"
+        } else {
+            "RC"
+        }
+    } else if p.arc_length.is_some() && has_delta {
+        "LD"
+    } else if has_delta {
+        "CD"
+    } else {
+        "LC"
+    };
+    let name = |c: char| match c {
+        'R' => "radius",
+        'L' => "arc length",
+        'D' => "delta",
+        _ => "chord",
+    };
+    let mut names = used.chars().map(name);
+    let used_text = format!("{} and {}", names.next().unwrap(), names.next().unwrap());
+    let tol = 0.05;
+
+    let mut found: Vec<(&str, &str, String)> = Vec::new();
+    if let Some(arc) = p.arc_length.filter(|v| !used.contains('L') && !v.is_nan()) {
+        if (arc - solved.l).abs() > tol {
+            found.push((
+                "Arc length",
+                p.raw_arc.as_deref().unwrap_or(""),
+                format!("{:.2}", solved.l),
+            ));
+        }
+    }
+    if let Some(chord) = p
+        .chord_length
+        .filter(|v| !used.contains('C') && !v.is_nan())
+    {
+        if (chord - solved.c).abs() > tol {
+            found.push((
+                "Chord",
+                p.raw_chord.as_deref().unwrap_or(""),
+                format!("{:.2}", solved.c),
+            ));
+        }
+    }
+    if let Some(delta) = p.delta_angle.filter(|v| !used.contains('D') && !v.is_nan()) {
+        let diff = (delta - solved.delta).abs();
+        if diff > 1.0 / 3600.0 && solved.r * diff * std::f64::consts::PI / 180.0 > tol {
+            found.push((
+                "Delta",
+                p.raw_delta.as_deref().unwrap_or(""),
+                fmt_bear_dms(solved.delta),
+            ));
+        }
+    }
+
+    found
+        .into_iter()
+        .map(|(label, raw, calc)| {
+            format!(
+                "{} {} does not agree with the {}, which give {}. The {} was ignored.",
+                label,
+                raw,
+                used_text,
+                calc,
+                label.to_lowercase()
+            )
+        })
+        .collect()
+}
+
 fn parse_curve_line(
     course_num: &str,
     line_no: usize,
@@ -219,6 +318,7 @@ fn parse_curve_line(
     param_start: usize,
     initial_bearing: Option<String>,
     prev: Option<&Course>,
+    warnings: &mut Vec<String>,
 ) -> Result<Course, String> {
     let p = scan_curve_params(parts, param_start, initial_bearing);
 
@@ -303,6 +403,13 @@ fn parse_curve_line(
             crate::bearing::azimuth_to_quad_bearing_hemi(chord_az)
         }
     };
+
+    for msg in curve_mismatches(&p, &solved) {
+        warnings.push(format!(
+            "Course #{} (on line {}) (Curve): {}",
+            course_num, line_no, msg
+        ));
+    }
 
     Ok(Course::Curve(CurveCourse {
         quad,

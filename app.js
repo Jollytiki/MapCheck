@@ -117,7 +117,7 @@ function showToast(message, type = "success") {
     toast.className = `toast ${type}`;
     
     const iconSpan = document.createElement("span");
-    iconSpan.textContent = type === "success" ? "✓" : "✗";
+    iconSpan.textContent = type === "success" ? "✓" : type === "warning" ? "!" : "✗";
     toast.appendChild(iconSpan);
     
     const msgSpan = document.createElement("span");
@@ -134,7 +134,7 @@ function showToast(message, type = "success") {
         }
     }
     
-    const duration = type === "error" ? 10000 : 3000;
+    const duration = type === "error" || type === "warning" ? 10000 : 3000;
     setTimeout(() => {
         toast.style.opacity = '0';
         setTimeout(() => toast.remove(), 300);
@@ -271,10 +271,6 @@ function calculateDeltas(quad, bearingDec, hemi, distance) {
 
 // Compute total closure calculations
 function recalculatePlat() {
-    let totalDist = 0;
-    let totalN = 0;
-    let totalE = 0;
-    
     courses = courses.map(c => {
         if (c.isInvalid) {
             return {
@@ -285,9 +281,6 @@ function recalculatePlat() {
         }
         const distForDelta = c.type === "curve" ? c.chordLength : c.distance;
         const { deltaN, deltaE } = calculateDeltas(c.quad, c.bearing, c.hemi, distForDelta);
-        totalDist += c.distance; // distance contains arc length for curves
-        totalN += deltaN;
-        totalE += deltaE;
         return {
             ...c,
             deltaN,
@@ -295,9 +288,8 @@ function recalculatePlat() {
         };
     });
     
-    const error = Math.sqrt(totalN * totalN + totalE * totalE);
-    const precision = error > 0.00001 ? Math.round(totalDist / error) : Infinity;
-    
+    const { totalDist, totalN, totalE, error, precision } = getClosure();
+
     // Update UI Stats
     totalDistVal.textContent = totalDist.toFixed(3);
     totalDeltaNVal.textContent = totalN.toFixed(4);
@@ -308,14 +300,14 @@ function recalculatePlat() {
         precisionVal.textContent = "1 : 0";
         precisionBox.className = "stat-box highlight";
         closureErrorBox.className = "stat-box";
-    } else if (error < 0.005) {
+    } else if (error < CLOSED_ERROR) {
         precisionVal.textContent = "PERFECT CLOSURE";
         precisionBox.className = "stat-box highlight success";
         closureErrorBox.className = "stat-box success";
     } else {
         precisionVal.textContent = `1 : ${precision.toLocaleString()}`;
         precisionBox.className = "stat-box highlight";
-        if (precision < 2000) {
+        if (precision < POOR_CLOSURE_PRECISION) {
             closureErrorBox.className = "stat-box warning";
         } else {
             closureErrorBox.className = "stat-box success";
@@ -332,6 +324,31 @@ function recalculatePlat() {
     renderTable();
     renderCoordinateTable();
     draw();
+}
+
+// Below this precision the lot is treated as not closing: the closure box
+// turns red, and an area computed for it comes with a warning.
+const POOR_CLOSURE_PRECISION = 2000;
+// A closure error under this many feet counts as a perfect closure.
+const CLOSED_ERROR = 0.005;
+
+// Closure totals, error and precision from the deltas recalculatePlat last
+// computed. The one place closure is calculated. `isOpen` is true when the
+// figure misses closing by more than survey error.
+function getClosure() {
+    let totalDist = 0, totalN = 0, totalE = 0;
+    courses.forEach(c => {
+        if (c.isInvalid) return;
+        totalDist += c.distance;
+        totalN += c.deltaN;
+        totalE += c.deltaE;
+    });
+    const error = Math.sqrt(totalN * totalN + totalE * totalE);
+    const precision = error > 0.00001 ? Math.round(totalDist / error) : Infinity;
+    return {
+        totalDist, totalN, totalE, error, precision,
+        isOpen: error >= CLOSED_ERROR && precision < POOR_CLOSURE_PRECISION
+    };
 }
 
 // Compute the area inside the boundary (using Shoelace formula + curve segment adjustments)
@@ -1284,6 +1301,7 @@ function parseCsvTextFile(content, fileName) {
     const lines = content.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
     const loadedCourses = [];
     let errorCount = 0;
+    const warnings = [];
     
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -1327,7 +1345,9 @@ function parseCsvTextFile(content, fileName) {
                 let arcLength = null;
                 let deltaAngle = null;
                 let turn = null;
-                
+                // Values as written in the file, for the mismatch warning.
+                let rawArc = null, rawChord = null, rawDelta = null;
+
                 // Pre-scan to check if explicit chord length prefixes (CL or CD) are present
                 const hasChordLengthParam = parts.slice(paramStartIndex).some(p => {
                     const u = p.trim().toUpperCase();
@@ -1342,24 +1362,29 @@ function parseCsvTextFile(content, fileName) {
                         bearingStr = parts[j].trim().substring(2);
                     } else if (param.startsWith("CL")) {
                         chordLength = parseFloat(param.substring(2));
+                        rawChord = param.substring(2);
                     } else if (param.startsWith("CD")) {
                         chordLength = parseFloat(param.substring(2));
+                        rawChord = param.substring(2);
                     } else if (param.startsWith("CH")) {
                         if (hasChordLengthParam) {
                             bearingStr = parts[j].trim().substring(2); // Treat CH as Chord Bearing shorthand
                         } else {
                             chordLength = parseFloat(param.substring(2)); // Treat CH as Chord Length
+                            rawChord = param.substring(2);
                         }
                     } else if (param.startsWith("LA")) {
                         const valStr = param.substring(2);
                         if (valStr) {
                             arcLength = parseFloat(valStr);
+                            rawArc = valStr;
                         }
                         turn = 'L';
                     } else if (param.startsWith("RA")) {
                         const valStr = param.substring(2);
                         if (valStr) {
                             arcLength = parseFloat(valStr);
+                            rawArc = valStr;
                         }
                         turn = 'R';
                     } else if (param === 'L' || param === 'R') {
@@ -1369,8 +1394,7 @@ function parseCsvTextFile(content, fileName) {
                     } else if (param.startsWith("D")) {
                         const rawD = parseFloat(param.substring(1));
                         deltaAngle = bearDec(rawD);
-                    } else if (param === 'L' || param === 'R') {
-                        turn = param;
+                        rawDelta = param.substring(1);
                     }
                 }
                 
@@ -1429,7 +1453,10 @@ function parseCsvTextFile(content, fileName) {
                     bearing = converted.bearing;
                     hemi = converted.hemi;
                 }
-                
+
+                curveMismatches({ radius, arcLength, deltaAngle, chordLength, rawArc, rawChord, rawDelta }, solved)
+                    .forEach(msg => warnings.push(`Course #${courseNum} (on line ${i + 1}) (Curve): ${msg}`));
+
                 loadedCourses.push({
                     type: "curve",
                     quad,
@@ -1559,7 +1586,7 @@ function parseCsvTextFile(content, fileName) {
     }
     
     const name = fileName.replace(/\.[^/.]+$/, "");
-    return { name, lot: "", courses: loadedCourses, errorCount };
+    return { name, lot: "", courses: loadedCourses, errorCount, warnings };
 }
 
 // Auto-detect format and route to correct parser
@@ -1688,7 +1715,7 @@ function parseMapFile(content) {
         lineIdx += 4;
     }
     
-    return { name, lot, courses: loadedCourses, errorCount };
+    return { name, lot, courses: loadedCourses, errorCount, warnings: [] };
 }
 
 // Generate retro .MAP output
@@ -1771,6 +1798,36 @@ function solveCurve(R, L, Delta, C) {
     }
     
     return { R, L, Delta, C };
+}
+
+// solveCurve uses the first pair it finds of radius, arc, delta and chord.
+// Any further value a file gives should agree with that solution, or it was
+// probably mistyped, so report it rather than drop it silently. Lengths must
+// agree within 0.05'; delta within 1" or 0.05' along the arc.
+function curveMismatches(given, solved) {
+    const { radius, arcLength, deltaAngle, chordLength } = given;
+    const used = radius !== null
+        ? (arcLength !== null ? "RL" : deltaAngle ? "RD" : "RC")
+        : (arcLength !== null && deltaAngle ? "LD" : deltaAngle ? "CD" : "LC");
+    const names = { R: "radius", L: "arc length", D: "delta", C: "chord" };
+    const usedText = `${names[used[0]]} and ${names[used[1]]}`;
+    const tol = 0.05;
+
+    const found = [];
+    if (!used.includes("L") && arcLength !== null && !isNaN(arcLength) && Math.abs(arcLength - solved.L) > tol) {
+        found.push(["Arc length", given.rawArc, solved.L.toFixed(2)]);
+    }
+    if (!used.includes("C") && chordLength !== null && !isNaN(chordLength) && Math.abs(chordLength - solved.C) > tol) {
+        found.push(["Chord", given.rawChord, solved.C.toFixed(2)]);
+    }
+    if (!used.includes("D") && deltaAngle !== null && !isNaN(deltaAngle)) {
+        const diff = Math.abs(deltaAngle - solved.Delta);
+        if (diff > 1 / 3600 && solved.R * diff * Math.PI / 180 > tol) {
+            found.push(["Delta", given.rawDelta, fmtBearDMS(solved.Delta)]);
+        }
+    }
+    return found.map(([label, raw, calc]) =>
+        `${label} ${raw} does not agree with the ${usedText}, which give ${calc}. The ${label.toLowerCase()} was ignored.`);
 }
 
 function updateCurveSolver() {
@@ -2209,8 +2266,9 @@ function initEvents() {
         const areaSqFt = calculateTraverseArea();
         if (areaSqFt !== null) {
             const acres = areaSqFt / 43560;
+            const openNote = getClosure().isOpen ? " (lot does not close)" : "";
             document.getElementById("printAreaSqFt").textContent = areaSqFt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " sq ft";
-            document.getElementById("printAreaAcres").textContent = acres.toFixed(4) + " ac";
+            document.getElementById("printAreaAcres").textContent = acres.toFixed(4) + " ac" + openNote;
         } else {
             document.getElementById("printAreaSqFt").textContent = "N/A (Open)";
             document.getElementById("printAreaAcres").textContent = "N/A (Open)";
@@ -2268,7 +2326,12 @@ function initEvents() {
             document.getElementById("areaSqFtVal").textContent = areaSqFt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             document.getElementById("areaAcresVal").textContent = acres.toFixed(4) + " ac";
             document.getElementById("areaDisplayBox").style.display = "block";
-            showToast("Area computed successfully");
+            const closure = getClosure();
+            if (closure.isOpen) {
+                showToast(`This lot does not close (misses by ${closure.error.toFixed(2)}', 1 : ${closure.precision.toLocaleString()}). The area assumes a straight line from the last point back to the start.`, "warning");
+            } else {
+                showToast("Area computed successfully");
+            }
         });
     }
 
@@ -2343,6 +2406,19 @@ function initEvents() {
                     showToast(`Imported "${platName}" with ${parsed.errorCount} invalid course(s). Loaded Course #${firstInvalid + 1} into editor for correction.`, "error");
                 } else {
                     showToast(`Successfully imported: "${platName}"`);
+                }
+
+                // All warnings go to the console; the screen gets at most two
+                // toasts, and just a count when invalid courses already got one.
+                const warnings = parsed.warnings || [];
+                warnings.forEach(msg => console.warn(msg));
+                if (warnings.length > 0 && parsed.errorCount > 0) {
+                    showToast(`Also ${warnings.length} curve value(s) that do not agree and were ignored. Details in the browser console.`, "warning");
+                } else if (warnings.length === 1) {
+                    showToast(warnings[0], "warning");
+                } else if (warnings.length > 1) {
+                    showToast(warnings[0], "warning");
+                    showToast(`...and ${warnings.length - 1} more curve value(s) that do not agree. Details in the browser console.`, "warning");
                 }
             } catch (err) {
                 console.error(err);

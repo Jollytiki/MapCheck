@@ -38,6 +38,7 @@ const PURE = [
   "parseBearingInput",
   "calculateDeltas",
   "solveCurve",
+  "curveMismatches",
   "getCourseAzimuth",
   "getCourseEndTangent",
   "azimuthToQuadBearingHemi",
@@ -139,6 +140,12 @@ const CSV_FILES = [
   "1, badbearing, 100\n2, C, R200, LA78.54\n",
   "1, 145.0000, 100\n2, C, R, LA78.54\n",
   "1, 145.0000, 100\n2, C, R200, L, D22.3000\n",
+  // A third curve value that disagrees with the two the solver used, one
+  // within tolerance, and one of each kind at once.
+  "1, 145.0000, 100\n2, C, R, R150, CH100, RA100\n",
+  "1, 145.0000, 100\n2, C, L, R200, CH77.85, D30.0000\n",
+  "1, 145.0000, 100\n2, C, R200, RA78.54, CL78.04\n",
+  "1, 145.0000, 100\n2, C, LA100, CL90, D60.0000\n3, C, R100, LA50, CL60, D40.0000\n",
 ];
 
 const DETECT_FILES = [

@@ -33,6 +33,10 @@ pub struct ParsedFile {
     pub courses: Vec<Course>,
     /// How many courses failed and were kept as [`Course::Invalid`].
     pub error_count: usize,
+    /// Courses that loaded but gave a value that disagrees with the rest,
+    /// one message each. Only the CSV format can say too much about a curve.
+    #[serde(default)]
+    pub warnings: Vec<String>,
 }
 
 const CURVE_MARKER: &str = " | CURVE | ";
@@ -140,6 +144,7 @@ pub fn parse_map_file(content: &str) -> Result<ParsedFile, ParseError> {
         lot,
         courses,
         error_count,
+        warnings: Vec::new(),
     })
 }
 
