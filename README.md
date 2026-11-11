@@ -30,12 +30,10 @@ no Rust, no Node, nothing to install:
 Running it opens MapCheck in your browser. Closing the browser tab quits the
 app on macOS; on Linux and Windows, stop it with Ctrl+C.
 
-**First run.** These builds may not be signed with a paid developer
-certificate, so your system can warn you the first time:
+**First run.** The macOS app is signed and notarised (checked by Apple),
+so it opens with a double-click. The Windows and Linux builds are not signed with a paid
+certificate, so your system may warn you the first time:
 
-- **macOS** — if it says the app can't be opened, right-click it, choose
-  *Open*, then *Open* again. (Or *System Settings → Privacy & Security →
-  Open Anyway*.)
 - **Windows** — SmartScreen may show "Windows protected your PC". Choose
   *More info*, then *Run anyway*.
 - **Linux** — if it won't start, make it executable: `chmod +x mapcheck`.
