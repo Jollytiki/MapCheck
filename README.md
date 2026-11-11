@@ -13,11 +13,7 @@ the app reports the error of closure, the precision ratio, the enclosed
 area, and plots the figure. `MAPCHECK.BAS` is the original QuickBASIC
 program, kept as the reference for the file format and the survey math.
 
-<!--
-  A screenshot or short GIF of MapCheck plotting a closure goes here —
-  drop one in (e.g. docs/screenshot.png) and reference it with:
-  ![MapCheck plotting a boundary closure](docs/screenshot.png)
--->
+![MapCheck plotting a boundary closure](docs/screenshot.png)
 
 ## Download
 
