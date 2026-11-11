@@ -1,25 +1,69 @@
 # MapCheck
 
-Boundary closure and traverse plotting for land surveys — a browser app that
-also reads and writes the `.MAP` files of its 1992 ancestor.
+Boundary closure and traverse plotting for land surveys. Type in a deed's
+courses and MapCheck plots the figure and tells you whether it closes. It is a
+small app that runs on your own computer and opens in your browser — no
+account, no upload, nothing leaves your machine.
 
-Enter courses as quadrant bearings and distances (or circular curves), and the
-app reports the error of closure, the precision ratio, the enclosed area, and
-plots the figure. `MAPCHECK.BAS` is the original QuickBASIC program, kept as
-the reference for the file format and the survey math.
+It also reads and writes the `.MAP` files of its 1992 ancestor, so plats
+drawn up in the original QuickBASIC program still open here.
 
-## Running it
+Enter courses as quadrant bearings and distances (or circular curves), and
+the app reports the error of closure, the precision ratio, the enclosed
+area, and plots the figure. `MAPCHECK.BAS` is the original QuickBASIC
+program, kept as the reference for the file format and the survey math.
 
-As a macOS app — double-click it, the app opens in your browser, and closing
-the last tab quits it:
+<!--
+  A screenshot or short GIF of MapCheck plotting a closure goes here —
+  drop one in (e.g. docs/screenshot.png) and reference it with:
+  ![MapCheck plotting a boundary closure](docs/screenshot.png)
+-->
+
+## Download
+
+Grab a build for your platform from the
+[latest release](https://github.com/Jollytiki/MapCheck/releases/latest) —
+no Rust, no Node, nothing to install:
+
+| Platform | Get |
+|---|---|
+| macOS | `MapCheck-macOS-universal.zip` — unzip, drag to Applications |
+| Linux | `mapcheck-linux-x86_64.tar.gz` — extract, run `./mapcheck` |
+| Windows | `mapcheck-windows-x86_64.zip` — extract, run `mapcheck.exe` |
+
+Running it opens MapCheck in your browser. Closing the browser tab quits the
+app on macOS; on Linux and Windows, stop it with Ctrl+C.
+
+**First run.** These builds may not be signed with a paid developer
+certificate, so your system can warn you the first time:
+
+- **macOS** — if it says the app can't be opened, right-click it, choose
+  *Open*, then *Open* again. (Or *System Settings → Privacy & Security →
+  Open Anyway*.)
+- **Windows** — SmartScreen may show "Windows protected your PC". Choose
+  *More info*, then *Run anyway*.
+- **Linux** — if it won't start, make it executable: `chmod +x mapcheck`.
+
+The source is all in this repository if you would rather build it yourself.
+
+## Found a bug, or a plat that doesn't close right?
+
+Please [open an issue](https://github.com/Jollytiki/MapCheck/issues/new) —
+a sample `.MAP` or CSV file that reproduces it is the single most useful
+thing you can attach. Feature requests and "this is confusing" reports are
+just as welcome as crashes.
+
+## Building from source
+
+Straight from the source files, with no build step at all:
 
 ```sh
-./scripts/build-bundle.sh          # builds dist/MapCheck.app
-open dist/MapCheck.app
-cp -r dist/MapCheck.app /Applications/
+npm run dev      # serves the current directory on http://localhost:3000
 ```
 
-Or as a plain executable, which is all the bundle wraps:
+`package.json` has no dependencies; it exists only to provide that command.
+
+As a plain executable, which is all the macOS bundle wraps:
 
 ```sh
 ./scripts/build-app.sh      # builds target/release/mapcheck
@@ -31,13 +75,14 @@ Or as a plain executable, which is all the bundle wraps:
         --no-browser     Start without opening a browser
 ```
 
-Or straight from the source files, with no build step at all:
+As a macOS app — double-click it, the app opens in your browser, and closing
+the last tab quits it:
 
 ```sh
-npm run dev      # serves the current directory on http://localhost:3000
+./scripts/build-bundle.sh          # builds dist/MapCheck.app
+open dist/MapCheck.app
+cp -r dist/MapCheck.app /Applications/
 ```
-
-`package.json` has no dependencies; it exists only to provide that command.
 
 ## Layout
 
