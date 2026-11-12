@@ -1,6 +1,6 @@
 {
   "name": "mapcheck-app",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Modern Map Check Web Application",
   "main": "index.html",
   "scripts": {
