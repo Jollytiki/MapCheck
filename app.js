@@ -1439,6 +1439,7 @@ function parseCsvTextFile(content, fileName) {
                 }
                 
                 let quad, bearing, hemi;
+                const curveWarnings = [];
                 if (bearingStr) {
                     const parsedBear = parseCsvBearing(bearingStr);
                     if (parsedBear === null) {
@@ -1447,6 +1448,9 @@ function parseCsvTextFile(content, fileName) {
                     quad = parsedBear.quad;
                     bearing = parsedBear.bearing;
                     hemi = parsedBear.hemi;
+                    curveWarnings.push(...curveTangencyWarning(
+                        loadedCourses[loadedCourses.length - 1],
+                        getCourseAzimuth(parsedBear), solved.Delta, turn, bearingStr));
                 } else {
                     if (loadedCourses.length === 0) {
                         throw new Error(`Course #${courseNum} (on line ${i + 1}) (Curve): No chord bearing specified, and there is no previous course to calculate a tangent curve. Please specify a bearing (e.g. "1, 135.0020, C, ...").`);
@@ -1469,7 +1473,8 @@ function parseCsvTextFile(content, fileName) {
                     hemi = converted.hemi;
                 }
 
-                curveMismatches({ radius, arcLength, deltaAngle, chordLength, rawArc, rawChord, rawDelta }, solved)
+                const given = { radius, arcLength, deltaAngle, chordLength, rawArc, rawChord, rawDelta };
+                [...curveMismatches(given, solved), ...curveArcChordRounding(given, solved), ...curveWarnings]
                     .forEach(msg => warnings.push(`Course #${courseNum} (on line ${i + 1}) (Curve): ${msg}`));
 
                 loadedCourses.push({
@@ -1761,16 +1766,17 @@ function generateMapFile(name, platCourses) {
 function solveCurve(R, L, Delta, C) {
     let deltaRad = Delta ? Delta * Math.PI / 180 : null;
     
-    // 1. R and L
-    if (R !== null && L !== null) {
+    // 1. R and Delta. Preferred when a record gives both, since a delta to
+    // the second is finer than an arc length rounded to the hundredth.
+    if (R !== null && deltaRad !== null) {
+        L = R * deltaRad;
+        C = 2 * R * Math.sin(deltaRad / 2);
+    }
+    // 2. R and L
+    else if (R !== null && L !== null) {
         deltaRad = L / R;
         C = 2 * R * Math.sin(deltaRad / 2);
         Delta = deltaRad * 180 / Math.PI;
-    }
-    // 2. R and Delta
-    else if (R !== null && deltaRad !== null) {
-        L = R * deltaRad;
-        C = 2 * R * Math.sin(deltaRad / 2);
     }
     // 3. R and C
     else if (R !== null && C !== null) {
@@ -1819,11 +1825,69 @@ function solveCurve(R, L, Delta, C) {
 // Any further value a file gives should agree with that solution, or it was
 // probably mistyped, so report it rather than drop it silently. Lengths must
 // agree within 0.05'; delta within 1" or 0.05' along the arc.
-function curveMismatches(given, solved) {
-    const { radius, arcLength, deltaAngle, chordLength } = given;
-    const used = radius !== null
-        ? (arcLength !== null ? "RL" : deltaAngle ? "RD" : "RC")
+// The pair of curve values solveCurve uses, in its order of preference.
+function curvePairUsed(given) {
+    const { radius, arcLength, deltaAngle } = given;
+    return radius !== null
+        ? (deltaAngle ? "RD" : arcLength !== null ? "RL" : "RC")
         : (arcLength !== null && deltaAngle ? "LD" : deltaAngle ? "CD" : "LC");
+}
+
+// Half a unit in the last decimal place written, e.g. 0.005 for "98.18".
+function roundingHalfUnit(raw) {
+    const s = String(raw ?? "").trim();
+    const dot = s.indexOf(".");
+    let n = 0;
+    if (dot >= 0) {
+        while (dot + 1 + n < s.length && s[dot + 1 + n] >= "0" && s[dot + 1 + n] <= "9") n++;
+    }
+    return 0.5 / Math.pow(10, n);
+}
+
+// A radius solved from arc length and chord alone is very sensitive to how
+// they were rounded on a short curve. Warn when that rounding leaves the
+// radius uncertain by more than 0.05'.
+function curveArcChordRounding(given, solved) {
+    if (curvePairUsed(given) !== "LC") return [];
+    const hl = roundingHalfUnit(given.rawArc);
+    const hc = roundingHalfUnit(given.rawChord);
+    const L = given.arcLength, C = given.chordLength;
+    const lo = solveCurve(null, L + hl, null, C - hc);
+    if (!lo) return [];
+    const hi = solveCurve(null, L - hl, null, C + hc);
+    const hiR = hi ? hi.R : Infinity;
+    if (hiR - lo.R <= 0.1) return [];
+    const range = Number.isFinite(hiR)
+        ? `anywhere from ${lo.R.toFixed(2)} to ${hiR.toFixed(2)}`
+        : `anywhere above ${lo.R.toFixed(2)}`;
+    return [`Radius ${solved.R.toFixed(2)} comes from the arc length and chord alone, and their rounding leaves it ${range}. Give the radius or delta if the record has one.`];
+}
+
+// A curve with its own chord bearing that starts just off tangent to the
+// previous course, or would be tangent turning the other way, is more likely
+// a typo than a deliberate non-tangent curve.
+function curveTangencyWarning(prev, chordAz, delta, turn, rawBearing) {
+    if (!prev || prev.isInvalid) return [];
+    const endTan = getCourseEndTangent(prev);
+    const off = (t) => Math.abs((((t - endTan) % 360) + 540) % 360 - 180);
+    const half = delta / 2;
+    const start = turn === 'R' ? chordAz - half : chordAz + half;
+    const flipped = turn === 'R' ? chordAz + half : chordAz - half;
+    const tol = 30 / 3600;
+    const d = off(start);
+    if (d <= tol) return [];
+    if (off(flipped) <= tol) {
+        return [`Chord bearing ${rawBearing} starts the curve ${fmtBear(d)} off tangent to the previous course, but it would be tangent turning ${turn === 'R' ? 'left' : 'right'}. Check the turn direction.`];
+    }
+    if (d < 5) {
+        return [`Chord bearing ${rawBearing} starts the curve ${fmtBear(d)} off tangent to the previous course. If the curve is meant to be tangent, check the chord bearing.`];
+    }
+    return [];
+}
+
+function curveMismatches(given, solved) {
+    const { arcLength, deltaAngle, chordLength } = given;
+    const used = curvePairUsed(given);
     const names = { R: "radius", L: "arc length", D: "delta", C: "chord" };
     const usedText = `${names[used[0]]} and ${names[used[1]]}`;
     const tol = 0.05;

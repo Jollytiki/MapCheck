@@ -6,7 +6,9 @@
 //! `CL`/`CD`/`CH` chord length, `CB` chord bearing, `D` central angle. Blank
 //! lines and `#` / `//` comments are ignored.
 
-use crate::bearing::{fmt_bear_dms, parse_csv_bearing, parse_delta_input};
+use crate::bearing::{
+    course_azimuth, fmt_bear, fmt_bear_dms, parse_csv_bearing, parse_delta_input,
+};
 use crate::curve::{solve_curve, CurveSolution};
 use crate::jsnum::parse_float;
 use crate::mapfile::{significant_lines, ParsedFile};
@@ -230,19 +232,16 @@ fn scan_curve_params(
     p
 }
 
-/// `solve_curve` uses the first pair it finds of radius, arc, delta and chord.
-/// Any further value a file gives should agree with that solution, or it was
-/// probably mistyped, so report it rather than drop it silently. Lengths must
-/// agree within 0.05'; delta within 1" or 0.05' along the arc.
-fn curve_mismatches(p: &CurveParams, solved: &CurveSolution) -> Vec<String> {
-    // The same tests solve_curve makes: present is enough, except that a zero
-    // delta counts as absent.
+/// The pair of curve values `solve_curve` uses, in its order of preference.
+/// The same tests it makes: present is enough, except that a zero delta
+/// counts as absent.
+fn curve_pair_used(p: &CurveParams) -> &'static str {
     let has_delta = p.delta_angle.is_some_and(|d| d != 0.0 && !d.is_nan());
-    let used = if p.radius.is_some() {
-        if p.arc_length.is_some() {
-            "RL"
-        } else if has_delta {
+    if p.radius.is_some() {
+        if has_delta {
             "RD"
+        } else if p.arc_length.is_some() {
+            "RL"
         } else {
             "RC"
         }
@@ -252,7 +251,99 @@ fn curve_mismatches(p: &CurveParams, solved: &CurveSolution) -> Vec<String> {
         "CD"
     } else {
         "LC"
+    }
+}
+
+/// Half a unit in the last decimal place written, e.g. 0.005 for "98.18".
+fn rounding_half_unit(raw: Option<&str>) -> f64 {
+    let s = raw.unwrap_or("").trim();
+    let n = match s.find('.') {
+        Some(dot) => s[dot + 1..]
+            .chars()
+            .take_while(|c| c.is_ascii_digit())
+            .count(),
+        None => 0,
     };
+    0.5 / 10f64.powi(n as i32)
+}
+
+/// A radius solved from arc length and chord alone is very sensitive to how
+/// they were rounded on a short curve. Warn when that rounding leaves the
+/// radius uncertain by more than 0.05'.
+fn arc_chord_rounding(p: &CurveParams, solved: &CurveSolution) -> Vec<String> {
+    if curve_pair_used(p) != "LC" {
+        return Vec::new();
+    }
+    let (Some(l), Some(c)) = (p.arc_length, p.chord_length) else {
+        return Vec::new();
+    };
+    let hl = rounding_half_unit(p.raw_arc.as_deref());
+    let hc = rounding_half_unit(p.raw_chord.as_deref());
+    let Some(lo) = solve_curve(None, Some(l + hl), None, Some(c - hc)) else {
+        return Vec::new();
+    };
+    let hi_r = solve_curve(None, Some(l - hl), None, Some(c + hc)).map_or(f64::INFINITY, |s| s.r);
+    if hi_r - lo.r <= 0.1 {
+        return Vec::new();
+    }
+    let range = if hi_r.is_finite() {
+        format!("anywhere from {:.2} to {:.2}", lo.r, hi_r)
+    } else {
+        format!("anywhere above {:.2}", lo.r)
+    };
+    vec![format!(
+        "Radius {:.2} comes from the arc length and chord alone, and their rounding leaves it {}. Give the radius or delta if the record has one.",
+        solved.r, range
+    )]
+}
+
+/// A curve with its own chord bearing that starts just off tangent to the
+/// previous course, or would be tangent turning the other way, is more likely
+/// a typo than a deliberate non-tangent curve.
+fn curve_tangency_warning(
+    prev: Option<&Course>,
+    chord_az: f64,
+    delta: f64,
+    turn: Turn,
+    raw_bearing: &str,
+) -> Vec<String> {
+    let Some(prev) = prev.filter(|c| !c.is_invalid()) else {
+        return Vec::new();
+    };
+    let end_tan = course_end_tangent(prev);
+    let off = |t: f64| ((((t - end_tan) % 360.0) + 540.0) % 360.0 - 180.0).abs();
+    let half = delta / 2.0;
+    let (start, flipped) = match turn {
+        Turn::R => (chord_az - half, chord_az + half),
+        Turn::L => (chord_az + half, chord_az - half),
+    };
+    let tol = 30.0 / 3600.0;
+    let d = off(start);
+    if d <= tol {
+        return Vec::new();
+    }
+    if off(flipped) <= tol {
+        let other = if turn == Turn::R { "left" } else { "right" };
+        return vec![format!(
+            "Chord bearing {} starts the curve {} off tangent to the previous course, but it would be tangent turning {}. Check the turn direction.",
+            raw_bearing, fmt_bear(d), other
+        )];
+    }
+    if d < 5.0 {
+        return vec![format!(
+            "Chord bearing {} starts the curve {} off tangent to the previous course. If the curve is meant to be tangent, check the chord bearing.",
+            raw_bearing, fmt_bear(d)
+        )];
+    }
+    Vec::new()
+}
+
+/// `solve_curve` uses the first pair it finds of radius, delta, arc and chord.
+/// Any further value a file gives should agree with that solution, or it was
+/// probably mistyped, so report it rather than drop it silently. Lengths must
+/// agree within 0.05'; delta within 1" or 0.05' along the arc.
+fn curve_mismatches(p: &CurveParams, solved: &CurveSolution) -> Vec<String> {
+    let used = curve_pair_used(p);
     let name = |c: char| match c {
         'R' => "radius",
         'L' => "arc length",
@@ -376,11 +467,22 @@ fn parse_curve_line(
             )
         })?;
 
+    let mut curve_warnings: Vec<String> = Vec::new();
     let (quad, bearing, hemi) = match &p.bearing_str {
-        Some(bs) if !bs.is_empty() => parse_csv_bearing(bs).ok_or_else(|| format!(
-            "Course #{} (on line {}) (Curve): Invalid bearing value \"{}\". Formats: QDD.MMSS (e.g. 135.0020) or explicit (e.g. N 35.0020 E).",
-            course_num, line_no, bs
-        ))?,
+        Some(bs) if !bs.is_empty() => {
+            let (quad, bearing, hemi) = parse_csv_bearing(bs).ok_or_else(|| format!(
+                "Course #{} (on line {}) (Curve): Invalid bearing value \"{}\". Formats: QDD.MMSS (e.g. 135.0020) or explicit (e.g. N 35.0020 E).",
+                course_num, line_no, bs
+            ))?;
+            curve_warnings = curve_tangency_warning(
+                prev,
+                course_azimuth(quad, bearing, hemi),
+                solved.delta,
+                turn,
+                bs,
+            );
+            (quad, bearing, hemi)
+        }
         // No chord bearing given: assume the curve is tangent to the previous
         // course and swing half the central angle off that tangent.
         _ => {
@@ -404,7 +506,11 @@ fn parse_curve_line(
         }
     };
 
-    for msg in curve_mismatches(&p, &solved) {
+    let all = curve_mismatches(&p, &solved)
+        .into_iter()
+        .chain(arc_chord_rounding(&p, &solved))
+        .chain(curve_warnings);
+    for msg in all {
         warnings.push(format!(
             "Course #{} (on line {}) (Curve): {}",
             course_num, line_no, msg

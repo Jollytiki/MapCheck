@@ -39,6 +39,10 @@ const PURE = [
   "parseBearingInput",
   "calculateDeltas",
   "solveCurve",
+  "curvePairUsed",
+  "roundingHalfUnit",
+  "curveArcChordRounding",
+  "curveTangencyWarning",
   "curveMismatches",
   "getCourseAzimuth",
   "getCourseEndTangent",
@@ -151,6 +155,16 @@ const CSV_FILES = [
   // unparseable one, and one over 90 degrees.
   "1, 145.0000, 100\n2, C, R, R150, D38-12-27\n3, C, L, R225, D51°07'09\"\n4, C, R, R100, D120 30 15\n",
   "1, 145.0000, 100\n2, C, R, R150, D38-75-00\n",
+  // Radius, arc and delta together: the delta wins and the arc is checked.
+  "1, 145.0000, 100\n2, C, R150, RA102.00, D38.1227\n",
+  // Chord bearings tangent, 1 degree off tangent, and tangent turning the
+  // other way.
+  "1, 145.0000, 100\n2, 156.1500, C, R, R200, D22.3000\n",
+  "1, 145.0000, 100\n2, 157.1500, C, R, R200, D22.3000\n",
+  "1, 145.0000, 100\n2, 133.4500, C, R, R200, D22.3000\n",
+  // A short curve given by arc and chord alone, and a long one.
+  "1, 145.0000, 100\n2, C, RA100.03, CH98.18\n",
+  "1, 145.0000, 100\n2, C, RA314.16, CH200.00\n",
 ];
 
 const DETECT_FILES = [

@@ -1515,12 +1515,12 @@
           {
             "type": "curve",
             "quad": "N",
-            "bearing": 56.25002630739374,
+            "bearing": 56.25,
             "hemi": "E",
-            "distance": 78.54,
-            "chordLength": 78.03630893771796,
+            "distance": 78.53981633974485,
+            "chordLength": 78.03612880645132,
             "radius": 200,
-            "deltaAngle": 22.500052614787432,
+            "deltaAngle": 22.500000000000004,
             "turn": "R",
             "rawBearing": "56.1500"
           }
@@ -2029,21 +2029,21 @@
           {
             "type": "curve",
             "quad": "N",
-            "bearing": 29.323944878270595,
+            "bearing": 35,
             "hemi": "W",
-            "distance": 50,
-            "chordLength": 49.48079185090459,
+            "distance": 69.81317007977317,
+            "chordLength": 68.40402866513374,
             "radius": 100,
-            "deltaAngle": 28.64788975654116,
+            "deltaAngle": 40,
             "turn": "L",
-            "rawBearing": "29.1926"
+            "rawBearing": "35.0000"
           }
         ],
         "errorCount": 0,
         "warnings": [
           "Course #2 (on line 2) (Curve): Chord 90 does not agree with the arc length and delta, which give 95.49. The chord was ignored.",
-          "Course #3 (on line 3) (Curve): Chord 60 does not agree with the radius and arc length, which give 49.48. The chord was ignored.",
-          "Course #3 (on line 3) (Curve): Delta 40.0000 does not agree with the radius and arc length, which give 28.3852. The delta was ignored."
+          "Course #3 (on line 3) (Curve): Arc length 50 does not agree with the radius and delta, which give 69.81. The arc length was ignored.",
+          "Course #3 (on line 3) (Curve): Chord 60 does not agree with the radius and delta, which give 68.40. The chord was ignored."
         ]
       },
       "error": null
@@ -2137,6 +2137,206 @@
           }
         ],
         "errorCount": 1,
+        "warnings": []
+      },
+      "error": null
+    },
+    {
+      "content": "1, 145.0000, 100\n2, C, R150, RA102.00, D38.1227\n",
+      "expected": {
+        "name": "courses",
+        "lot": "",
+        "courses": [
+          {
+            "type": "line",
+            "quad": "N",
+            "bearing": 45,
+            "hemi": "E",
+            "distance": 100,
+            "rawBearing": "145.0000"
+          },
+          {
+            "type": "curve",
+            "quad": "N",
+            "bearing": 64.10374999999999,
+            "hemi": "E",
+            "distance": 100.02700109336004,
+            "chordLength": 98.18392351196613,
+            "radius": 150,
+            "deltaAngle": 38.20750000000001,
+            "turn": "R",
+            "rawBearing": "64.0613"
+          }
+        ],
+        "errorCount": 0,
+        "warnings": [
+          "Course #2 (on line 2) (Curve): Arc length 102.00 does not agree with the radius and delta, which give 100.03. The arc length was ignored."
+        ]
+      },
+      "error": null
+    },
+    {
+      "content": "1, 145.0000, 100\n2, 156.1500, C, R, R200, D22.3000\n",
+      "expected": {
+        "name": "courses",
+        "lot": "",
+        "courses": [
+          {
+            "type": "line",
+            "quad": "N",
+            "bearing": 45,
+            "hemi": "E",
+            "distance": 100,
+            "rawBearing": "145.0000"
+          },
+          {
+            "type": "curve",
+            "quad": "N",
+            "bearing": 56.24999999999999,
+            "hemi": "E",
+            "distance": 78.53981633974485,
+            "chordLength": 78.03612880645132,
+            "radius": 200,
+            "deltaAngle": 22.500000000000004,
+            "turn": "R",
+            "rawBearing": "156.1500"
+          }
+        ],
+        "errorCount": 0,
+        "warnings": []
+      },
+      "error": null
+    },
+    {
+      "content": "1, 145.0000, 100\n2, 157.1500, C, R, R200, D22.3000\n",
+      "expected": {
+        "name": "courses",
+        "lot": "",
+        "courses": [
+          {
+            "type": "line",
+            "quad": "N",
+            "bearing": 45,
+            "hemi": "E",
+            "distance": 100,
+            "rawBearing": "145.0000"
+          },
+          {
+            "type": "curve",
+            "quad": "N",
+            "bearing": 57.24999999999999,
+            "hemi": "E",
+            "distance": 78.53981633974485,
+            "chordLength": 78.03612880645132,
+            "radius": 200,
+            "deltaAngle": 22.500000000000004,
+            "turn": "R",
+            "rawBearing": "157.1500"
+          }
+        ],
+        "errorCount": 0,
+        "warnings": [
+          "Course #2 (on line 2) (Curve): Chord bearing 157.1500 starts the curve 1-00-00 off tangent to the previous course. If the curve is meant to be tangent, check the chord bearing."
+        ]
+      },
+      "error": null
+    },
+    {
+      "content": "1, 145.0000, 100\n2, 133.4500, C, R, R200, D22.3000\n",
+      "expected": {
+        "name": "courses",
+        "lot": "",
+        "courses": [
+          {
+            "type": "line",
+            "quad": "N",
+            "bearing": 45,
+            "hemi": "E",
+            "distance": 100,
+            "rawBearing": "145.0000"
+          },
+          {
+            "type": "curve",
+            "quad": "N",
+            "bearing": 33.75000000000001,
+            "hemi": "E",
+            "distance": 78.53981633974485,
+            "chordLength": 78.03612880645132,
+            "radius": 200,
+            "deltaAngle": 22.500000000000004,
+            "turn": "R",
+            "rawBearing": "133.4500"
+          }
+        ],
+        "errorCount": 0,
+        "warnings": [
+          "Course #2 (on line 2) (Curve): Chord bearing 133.4500 starts the curve 22-30-00 off tangent to the previous course, but it would be tangent turning left. Check the turn direction."
+        ]
+      },
+      "error": null
+    },
+    {
+      "content": "1, 145.0000, 100\n2, C, RA100.03, CH98.18\n",
+      "expected": {
+        "name": "courses",
+        "lot": "",
+        "courses": [
+          {
+            "type": "line",
+            "quad": "N",
+            "bearing": 45,
+            "hemi": "E",
+            "distance": 100,
+            "rawBearing": "145.0000"
+          },
+          {
+            "type": "curve",
+            "quad": "N",
+            "bearing": 64.1395047313357,
+            "hemi": "E",
+            "distance": 100.03,
+            "chordLength": 98.18,
+            "radius": 149.7242720003666,
+            "deltaAngle": 38.27900946267143,
+            "turn": "R",
+            "rawBearing": "64.0822"
+          }
+        ],
+        "errorCount": 0,
+        "warnings": [
+          "Course #2 (on line 2) (Curve): Radius 149.72 comes from the arc length and chord alone, and their rounding leaves it anywhere from 149.33 to 150.12. Give the radius or delta if the record has one."
+        ]
+      },
+      "error": null
+    },
+    {
+      "content": "1, 145.0000, 100\n2, C, RA314.16, CH200.00\n",
+      "expected": {
+        "name": "courses",
+        "lot": "",
+        "courses": [
+          {
+            "type": "line",
+            "quad": "N",
+            "bearing": 45,
+            "hemi": "E",
+            "distance": 100,
+            "rawBearing": "145.0000"
+          },
+          {
+            "type": "curve",
+            "quad": "S",
+            "bearing": 44.9997895414574,
+            "hemi": "E",
+            "distance": 314.16,
+            "chordLength": 200,
+            "radius": 100.00000000067462,
+            "deltaAngle": 180.00042091708514,
+            "turn": "R",
+            "rawBearing": "44.5959"
+          }
+        ],
+        "errorCount": 0,
         "warnings": []
       },
       "error": null

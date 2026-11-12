@@ -243,6 +243,13 @@ radius, `LA`/`RA` arc length and turn direction, `CL`/`CD`/`CH` chord length,
 curve with no chord bearing is taken as tangent to the previous course. `#`
 and `//` lines are comments. The app's "Format Help" button documents this too.
 
+A curve needs any two of radius, arc, delta and chord. Given more, radius and
+delta win over arc length, and any extra value that disagrees is reported.
+Loading also warns when a curve's chord bearing starts it just off tangent to
+the previous course, or tangent only if it turned the other way, and when a
+radius solved from arc and chord alone is loose because of how they were
+rounded.
+
 Bearings are packed `DD.MMSS` — `35.0020` means 35°00'20", not 35.002° — with
 an optional quadrant digit (1=NE, 2=SE, 3=SW, 4=NW), so `135.0020` is
 N 35°00'20" E. Separated forms (`45-30-00`, `45 30 00`, `45°30'00"`) are

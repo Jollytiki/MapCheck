@@ -58,13 +58,14 @@ pub fn solve_curve(
     let delta_rad = truthy(delta_deg).map(|d| d.to_radians());
 
     let (r, l, delta_rad, c) = match (radius, arc_length, delta_rad, chord) {
+        // Radius + central angle. Preferred when a record gives both, since a
+        // delta to the second is finer than an arc rounded to the hundredth.
+        (Some(r), _, Some(dr), _) => (r, r * dr, dr, 2.0 * r * (dr / 2.0).sin()),
         // Radius + arc length
-        (Some(r), Some(l), _, _) => {
+        (Some(r), Some(l), None, _) => {
             let dr = l / r;
             (r, l, dr, 2.0 * r * (dr / 2.0).sin())
         }
-        // Radius + central angle
-        (Some(r), None, Some(dr), _) => (r, r * dr, dr, 2.0 * r * (dr / 2.0).sin()),
         // Radius + chord
         (Some(r), None, None, Some(c)) => {
             if c > 2.0 * r {

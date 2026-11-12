@@ -520,3 +520,58 @@ fn reverse_curve_lot_with_mixed_bearings_closes_within_rounding() {
     let area = calculate_area(&f.courses).unwrap();
     assert!((area - 47_995.49).abs() < 1.0, "area {area}");
 }
+
+// With radius, arc and delta all given, the delta (to the second) controls
+// rather than the arc (to the hundredth), so the record delta is kept exactly.
+#[test]
+fn csv_curve_prefers_radius_and_delta_over_arc() {
+    use mapcheck_core::csvfile::parse_csv_text;
+    let f = parse_csv_text(
+        "1, 117.2341, 212.37\n2, C, R150, RA100.03, D38.1227\n",
+        "t.txt",
+    );
+    assert!(f.warnings.is_empty(), "{:?}", f.warnings);
+    match &f.courses[1] {
+        Course::Curve(c) => assert_eq!(fmt_bear(c.delta_angle), "38-12-27"),
+        other => panic!("{other:?}"),
+    }
+}
+
+// A chord bearing just off tangent, or tangent only if the curve turned the
+// other way, is flagged. Exactly tangent and plainly non-tangent are not.
+#[test]
+fn csv_curve_flags_a_chord_bearing_just_off_tangent() {
+    use mapcheck_core::csvfile::parse_csv_text;
+    // Previous course N 45 E; a right curve of 22-30-00 tangent to it has a
+    // chord of N 56-15 E.
+    let warn = |cb: &str| {
+        let txt = format!("1, 145.0000, 100\n2, {cb}, C, R, R200, D22.3000\n");
+        parse_csv_text(&txt, "t.txt").warnings
+    };
+    assert!(warn("156.1500").is_empty());
+    assert!(warn("156.1520").is_empty(), "20\" is within rounding");
+    assert!(warn("157.1500")[0].contains("1-00-00 off tangent"));
+    assert!(warn("133.4500")[0].contains("tangent turning left"));
+    assert!(
+        warn("190.0000").is_empty(),
+        "a deliberate non-tangent curve"
+    );
+}
+
+// Arc 100.03 and chord 98.18 are a 150' radius curve rounded to the
+// hundredth, but solve to 149.72; the warning gives the range rounding allows.
+#[test]
+fn csv_curve_warns_when_arc_and_chord_leave_the_radius_loose() {
+    use mapcheck_core::csvfile::parse_csv_text;
+    let f = parse_csv_text("1, 145.0000, 100\n2, C, RA100.03, CH98.18\n", "t.txt");
+    assert_eq!(f.warnings.len(), 1, "{:?}", f.warnings);
+    assert!(f.warnings[0].contains("Radius 149.72"), "{}", f.warnings[0]);
+    assert!(
+        f.warnings[0].contains("149.33 to 150.12"),
+        "{}",
+        f.warnings[0]
+    );
+    // A long curve pins the radius down well enough to stay quiet.
+    let f = parse_csv_text("1, 145.0000, 100\n2, C, RA314.16, CH200.00\n", "t.txt");
+    assert!(f.warnings.is_empty(), "{:?}", f.warnings);
+}
