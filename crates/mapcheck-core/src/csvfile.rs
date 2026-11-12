@@ -6,7 +6,7 @@
 //! `CL`/`CD`/`CH` chord length, `CB` chord bearing, `D` central angle. Blank
 //! lines and `#` / `//` comments are ignored.
 
-use crate::bearing::{bear_dec, fmt_bear_dms, parse_csv_bearing};
+use crate::bearing::{fmt_bear_dms, parse_csv_bearing, parse_delta_input};
 use crate::curve::{solve_curve, CurveSolution};
 use crate::jsnum::parse_float;
 use crate::mapfile::{significant_lines, ParsedFile};
@@ -218,7 +218,7 @@ fn scan_curve_params(
                 } else if let Some(rest) = param.strip_prefix('R') {
                     p.radius = Some(parse_float(rest));
                 } else if let Some(rest) = param.strip_prefix('D') {
-                    p.delta_angle = Some(bear_dec(parse_float(rest)));
+                    p.delta_angle = Some(parse_delta_input(rest));
                     p.raw_delta = Some(rest.to_string());
                 } else if param == "L" {
                     p.turn = Some(Turn::L);

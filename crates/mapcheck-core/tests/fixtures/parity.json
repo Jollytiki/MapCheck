@@ -2047,6 +2047,99 @@
         ]
       },
       "error": null
+    },
+    {
+      "content": "1, 145.0000, 100\n2, C, R, R150, D38-12-27\n3, C, L, R225, D51°07'09\"\n4, C, R, R100, D120 30 15\n",
+      "expected": {
+        "name": "courses",
+        "lot": "",
+        "courses": [
+          {
+            "type": "line",
+            "quad": "N",
+            "bearing": 45,
+            "hemi": "E",
+            "distance": 100,
+            "rawBearing": "145.0000"
+          },
+          {
+            "type": "curve",
+            "quad": "N",
+            "bearing": 64.10374999999999,
+            "hemi": "E",
+            "distance": 100.02700109336003,
+            "chordLength": 98.18392351196611,
+            "radius": 150,
+            "deltaAngle": 38.2075,
+            "turn": "R",
+            "rawBearing": "64.0613"
+          },
+          {
+            "type": "curve",
+            "quad": "N",
+            "bearing": 57.647916666666674,
+            "hemi": "E",
+            "distance": 200.7444980720403,
+            "chordLength": 194.15226832481918,
+            "radius": 225,
+            "deltaAngle": 51.119166666666665,
+            "turn": "L",
+            "rawBearing": "57.3853"
+          },
+          {
+            "type": "curve",
+            "quad": "S",
+            "bearing": 87.65958333333333,
+            "hemi": "E",
+            "distance": 210.31944707053333,
+            "chordLength": 173.64337137128757,
+            "radius": 100,
+            "deltaAngle": 120.50416666666666,
+            "turn": "R",
+            "rawBearing": "87.3934"
+          }
+        ],
+        "errorCount": 0,
+        "warnings": []
+      },
+      "error": null
+    },
+    {
+      "content": "1, 145.0000, 100\n2, C, R, R150, D38-75-00\n",
+      "expected": {
+        "name": "courses",
+        "lot": "",
+        "courses": [
+          {
+            "type": "line",
+            "quad": "N",
+            "bearing": 45,
+            "hemi": "E",
+            "distance": 100,
+            "rawBearing": "145.0000"
+          },
+          {
+            "type": "invalid",
+            "isInvalid": true,
+            "errorMsg": "Course #2 (on line 2) (Curve): Not enough parameters to compute curve. Provided: Radius (R). Please provide at least one of the following to resolve the curve geometry: Arc Length (LA/RA), Chord Distance (CH/CD/CL).",
+            "partialType": "curve",
+            "partialData": {
+              "quad": null,
+              "hemi": null,
+              "rawBearing": null,
+              "radius": 150,
+              "chordLength": null,
+              "arcLength": null,
+              "deltaAngle": null,
+              "turn": "R",
+              "distance": null
+            }
+          }
+        ],
+        "errorCount": 1,
+        "warnings": []
+      },
+      "error": null
     }
   ],
   "detectAndParseFile": [

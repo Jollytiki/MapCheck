@@ -157,6 +157,22 @@ function bearDec(dms) {
     return sign * (deg + mm / 60 + ss / 3600);
 }
 
+// Parse a curve's central angle: packed DD.MMSS ("51.0709") or separated
+// D-M-S ("51-07-09", "51 07 09", "51°07'09\""). Unlike a bearing it may exceed
+// 90 degrees and takes no quadrant prefix. NaN when unparseable.
+function parseDeltaInput(str) {
+    const s = String(str).trim();
+    if (/[-\s:°'"]/.test(s)) {
+        const parts = s.split(/[-\s:°'"]+/).filter(p => p !== "");
+        const field = (i) => (i < parts.length ? Number(parts[i]) : 0);
+        const deg = field(0), min = field(1), sec = field(2);
+        if (parts.length === 0 || parts.length > 3 || [deg, min, sec].some(v => !Number.isFinite(v))) return NaN;
+        if (deg < 0 || min < 0 || min >= 60 || sec < 0 || sec >= 60) return NaN;
+        return deg + min / 60 + sec / 3600;
+    }
+    return bearDec(parseFloat(s));
+}
+
 // Format decimal degrees as DD-MM-SS string
 function fmtBear(dec) {
     if (dec === 0) return "00-00-00";
@@ -1392,8 +1408,7 @@ function parseCsvTextFile(content, fileName) {
                     } else if (param.startsWith("R")) {
                         radius = parseFloat(param.substring(1));
                     } else if (param.startsWith("D")) {
-                        const rawD = parseFloat(param.substring(1));
-                        deltaAngle = bearDec(rawD);
+                        deltaAngle = parseDeltaInput(param.substring(1));
                         rawDelta = param.substring(1);
                     }
                 }
@@ -1550,8 +1565,8 @@ function parseCsvTextFile(content, fileName) {
                     return u.startsWith("D");
                 });
                 if (dParam) {
-                    const rawD = parseFloat(dParam.trim().substring(1));
-                    if (!isNaN(rawD)) deltaAngle = bearDec(rawD);
+                    const d = parseDeltaInput(dParam.trim().substring(1));
+                    if (!isNaN(d)) deltaAngle = d;
                 }
             }
             

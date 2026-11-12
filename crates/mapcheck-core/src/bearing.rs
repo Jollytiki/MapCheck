@@ -27,6 +27,35 @@ pub fn bear_dec(dms: f64) -> f64 {
     sign * (deg + mm / 60.0 + ss / 3600.0)
 }
 
+/// Parse a curve's central angle: packed `DD.MMSS` (`51.0709`) or separated
+/// D-M-S (`51-07-09`, `51 07 09`, `51°07'09"`). Unlike a bearing it may exceed
+/// 90 degrees and takes no quadrant prefix. NaN when unparseable.
+///
+/// Port of `parseDeltaInput` in `app.js`.
+pub fn parse_delta_input(input: &str) -> f64 {
+    let s = input.trim();
+    let is_sep = |c: char| c.is_whitespace() || SEPARATORS.contains(&c);
+    if !s.chars().any(is_sep) {
+        return bear_dec(parse_float(s));
+    }
+    let parts: Vec<&str> = s.split(is_sep).filter(|p| !p.is_empty()).collect();
+    if parts.is_empty() || parts.len() > 3 {
+        return f64::NAN;
+    }
+    // `Number()` semantics: the whole field must be numeric.
+    let field = |i: usize| match parts.get(i) {
+        None => Some(0.0),
+        Some(p) => p.parse::<f64>().ok().filter(|v| v.is_finite()),
+    };
+    let (Some(deg), Some(min), Some(sec)) = (field(0), field(1), field(2)) else {
+        return f64::NAN;
+    };
+    if deg < 0.0 || !(0.0..60.0).contains(&min) || !(0.0..60.0).contains(&sec) {
+        return f64::NAN;
+    }
+    deg + min / 60.0 + sec / 3600.0
+}
+
 /// Split decimal degrees into whole degrees/minutes/seconds, carrying any
 /// rounding spill upward.
 fn dms_parts(dec: f64) -> (i64, i64, i64) {

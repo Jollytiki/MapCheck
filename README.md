@@ -239,9 +239,9 @@ distance line carries the chord so the 1992 program still plots them.
 **CSV / text** — one course per line, `num, bearing, distance`, or
 `num, [bearing,] C, <params>` for a curve, where params are prefixed: `R`
 radius, `LA`/`RA` arc length and turn direction, `CL`/`CD`/`CH` chord length,
-`CB` chord bearing, `D` central angle. A curve with no chord bearing is taken
-as tangent to the previous course. `#` and `//` lines are comments. The app's
-"Format Help" button documents this too.
+`CB` chord bearing, `D` central angle (packed `DD.MMSS` or `DD-MM-SS`). A
+curve with no chord bearing is taken as tangent to the previous course. `#`
+and `//` lines are comments. The app's "Format Help" button documents this too.
 
 Bearings are packed `DD.MMSS` — `35.0020` means 35°00'20", not 35.002° — with
 an optional quadrant digit (1=NE, 2=SE, 3=SW, 4=NW), so `135.0020` is

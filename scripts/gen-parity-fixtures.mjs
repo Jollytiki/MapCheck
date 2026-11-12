@@ -33,6 +33,7 @@ function extractFunction(name) {
 
 const PURE = [
   "bearDec",
+  "parseDeltaInput",
   "fmtBear",
   "fmtBearDMS",
   "parseBearingInput",
@@ -146,6 +147,10 @@ const CSV_FILES = [
   "1, 145.0000, 100\n2, C, L, R200, CH77.85, D30.0000\n",
   "1, 145.0000, 100\n2, C, R200, RA78.54, CL78.04\n",
   "1, 145.0000, 100\n2, C, LA100, CL90, D60.0000\n3, C, R100, LA50, CL60, D40.0000\n",
+  // Delta written as separated D-M-S rather than packed DD.MMSS, an
+  // unparseable one, and one over 90 degrees.
+  "1, 145.0000, 100\n2, C, R, R150, D38-12-27\n3, C, L, R225, D51°07'09\"\n4, C, R, R100, D120 30 15\n",
+  "1, 145.0000, 100\n2, C, R, R150, D38-75-00\n",
 ];
 
 const DETECT_FILES = [

@@ -31,7 +31,7 @@ pub mod types;
 pub mod prelude {
     pub use crate::bearing::{
         azimuth_to_quad_bearing_hemi, bear_dec, course_azimuth, fmt_bear, fmt_bear_dms,
-        parse_bearing_input, parse_csv_bearing, ParsedBearing,
+        parse_bearing_input, parse_csv_bearing, parse_delta_input, ParsedBearing,
     };
     pub use crate::csvfile::parse_csv_text;
     pub use crate::curve::{solve_curve, CurveSolution};

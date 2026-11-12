@@ -460,3 +460,63 @@ fn csv_curve_warns_on_extra_values_that_disagree() {
         vec!["Course #2 (on line 2) (Curve): Chord 100 does not agree with the radius and arc length, which give 98.16. The chord was ignored.".to_string()]
     );
 }
+
+// A delta written as separated D-M-S must not be read as whole degrees, which
+// is what parseFloat("38-12-27") would give.
+#[test]
+fn csv_curve_delta_accepts_separated_dms() {
+    use mapcheck_core::csvfile::parse_csv_text;
+    let expected = 38.0 + 12.0 / 60.0 + 27.0 / 3600.0;
+    for d in [
+        "D38.1227",
+        "D38-12-27",
+        "D38 12 27",
+        "D38°12'27\"",
+        "D38:12:27",
+    ] {
+        let txt = format!("1, N 00-00-00 E, 100\n2, C, R, R150, {d}\n");
+        let f = parse_csv_text(&txt, "t.txt");
+        assert_eq!(f.error_count, 0, "{d}: {:?}", f.courses);
+        match &f.courses[1] {
+            Course::Curve(c) => assert!((c.delta_angle - expected).abs() < 1e-9, "{d}"),
+            other => panic!("{d}: {other:?}"),
+        }
+    }
+    // Over 90 degrees is a valid delta, unlike a bearing.
+    assert!((parse_delta_input("120-30-15") - (120.0 + 30.0 / 60.0 + 15.0 / 3600.0)).abs() < 1e-9);
+    assert!(parse_delta_input("38-75-00").is_nan());
+    assert!(parse_delta_input("38-12-27-5").is_nan());
+}
+
+// A lot built from exact geometry and printed the way a deed would be:
+// bearings to the second, distances to the hundredth, with a tangent reverse
+// curve and every bearing format mixed. Rounding alone leaves a few
+// thousandths of misclosure, and the area matches the exact figure.
+#[test]
+fn reverse_curve_lot_with_mixed_bearings_closes_within_rounding() {
+    use mapcheck_core::csvfile::parse_csv_text;
+    let txt = "1, 117.2341, 212.37\n\
+               2, C, R, R150, D38-12-27\n\
+               3, C, L, R225, D51.0709\n\
+               4, N 4-28-59 E, 85.00\n\
+               5, S 78°01'01\" E, 180.00\n\
+               6, S38 57 12 W, 639.13\n";
+    let mut f = parse_csv_text(txt, "lot.txt");
+    assert_eq!(f.error_count, 0, "{:?}", f.courses);
+    assert!(f.warnings.is_empty(), "{:?}", f.warnings);
+    let closure = recalculate(&mut f.courses);
+    assert!(closure.error < 0.01, "misclosure {}", closure.error);
+    assert!(closure.precision.unwrap() > 100_000.0);
+
+    // The second curve is tangent to the first, so it leaves along the
+    // first curve's end tangent: 17-23-41 + 38-12-27 = 55-36-08, then swings
+    // left by half of 51-07-09 to a chord of N 30-02-34 E.
+    match &f.courses[2] {
+        Course::Curve(c) => assert_eq!(fmt_bear(c.bearing), "30-02-34"),
+        other => panic!("{other:?}"),
+    }
+
+    // Exact area of the unrounded figure is 47,995.49 sq ft.
+    let area = calculate_area(&f.courses).unwrap();
+    assert!((area - 47_995.49).abs() < 1.0, "area {area}");
+}
